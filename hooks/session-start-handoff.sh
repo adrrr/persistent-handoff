@@ -28,6 +28,7 @@ set -uo pipefail
 
 payload=$(cat)
 home=${HOME:-$PWD}
+home=${home%/}   # a trailing slash would silently change every derived name
 
 handoff_file="${PERSISTENT_HANDOFF_FILE:-}"
 if [ -z "$handoff_file" ]; then
@@ -39,8 +40,13 @@ if [ -z "$handoff_file" ]; then
 
   # The whole path becomes the name, not just its last segment: ~/work/acme/api
   # and ~/work/beta/api are two different agents and must not share a handoff.
-  # ~/work/acme/api gives work-acme-api.md
-  slug=$(printf '%s' "${cwd#"$home"/}" | tr -cs 'A-Za-z0-9._-' '-')
+  # ~/work/acme/api gives work-acme-api.md. A cwd outside $HOME keeps an "abs-"
+  # prefix so /var/tmp/x and ~/var/tmp/x cannot share a file either.
+  rel=${cwd#"$home"/}
+  if [ "$rel" = "$cwd" ] && [ "$cwd" != "$home" ]; then
+    rel="abs-$cwd"
+  fi
+  slug=$(printf '%s' "$rel" | tr -cs 'A-Za-z0-9._-' '-')
   slug=${slug#-}
   slug=${slug%-}
   [ -n "$slug" ] || slug="agent"

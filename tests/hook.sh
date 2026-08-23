@@ -5,7 +5,6 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 HOOK=$SCRIPT_DIR/../hooks/session-start-handoff.sh
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
-rm -rf "$TMP"
 HOME_DIR="$TMP/home"
 mkdir -p "$HOME_DIR/.claude/handoffs" "$HOME_DIR/proj-alpha"
 fail=0
@@ -87,12 +86,17 @@ c=$(ctx_of "$out")
   && ok "8 directory: reports unreadable, no hollow preamble" || ko "8 (rc=$rc ctx=<$c>)"
 
 # 9. Unreadable file: the warning reaches Claude via additionalContext, since
-# stderr from a hook that exits 0 never leaves the debug log.
-printf 'secret\n' > "$TMP/noread.md"; chmod 000 "$TMP/noread.md"
-out=$(printf '%s' "$PAYLOAD" | HOME="$HOME_DIR" PERSISTENT_HANDOFF_FILE="$TMP/noread.md" "$HOOK"); rc=$?
-[ "$rc" -eq 0 ] && ctx_of "$out" | grep -q 'could not be read' \
-  && ok "9 unreadable file: reported in additionalContext" || ko "9 (rc=$rc)"
-chmod 644 "$TMP/noread.md"
+# stderr from a hook that exits 0 never leaves the debug log. Root ignores file
+# modes entirely, so under root this scenario cannot be staged: skip, not fail.
+if [ "$(id -u)" -ne 0 ]; then
+  printf 'secret\n' > "$TMP/noread.md"; chmod 000 "$TMP/noread.md"
+  out=$(printf '%s' "$PAYLOAD" | HOME="$HOME_DIR" PERSISTENT_HANDOFF_FILE="$TMP/noread.md" "$HOOK"); rc=$?
+  [ "$rc" -eq 0 ] && ctx_of "$out" | grep -q 'could not be read' \
+    && ok "9 unreadable file: reported in additionalContext" || ko "9 (rc=$rc)"
+  chmod 644 "$TMP/noread.md"
+else
+  echo "SKIP 9 (running as root: chmod 000 does not block reads)"
+fi
 
 # 10. Nominal run must keep stderr silent.
 err=$(printf '%s' "$PAYLOAD" | HOME="$HOME_DIR" PERSISTENT_HANDOFF_FILE="$TMP/pinned.md" "$HOOK" 2>&1 >/dev/null)
@@ -130,9 +134,32 @@ ok "15 exotic cwd values tolerated"
 # 16. A handoff over the 10k character cap still emits valid JSON. Claude Code
 # replaces anything past 10k with a preview and a file path, which is why the
 # skill targets 300-500 tokens.
-/usr/bin/python3 -c "print('# Handoff\n'+('x'*100+'\n')*2000)" > "$TMP/big.md"
+awk 'BEGIN { print "# Handoff"; line = sprintf("%100s", ""); gsub(/ /, "x", line); for (i = 0; i < 2000; i++) print line }' > "$TMP/big.md"
 out=$(printf '%s' "$PAYLOAD" | HOME="$HOME_DIR" PERSISTENT_HANDOFF_FILE="$TMP/big.md" "$HOOK")
 printf '%s' "$out" | jq -e . >/dev/null 2>&1 && ok "16 oversized handoff: valid JSON" || ko "16"
+
+# 17. A cwd outside $HOME must not share a file with the same path under $HOME:
+# /var/tmp/x and ~/var/tmp/x collide without the abs- prefix (the leading dash
+# of the absolute path is stripped, leaving the same slug). The hook never
+# stats the cwd, so a fictive path stages the scenario exactly.
+mkdir -p "$HOME_DIR/var/tmp/x"
+printf 'inside home\n' > "$HOME_DIR/.claude/handoffs/var-tmp-x.md"
+out=$(payload_for "/var/tmp/x" | HOME="$HOME_DIR" "$HOOK")
+if printf '%s' "$out" | grep -q 'inside home'; then
+  ko "17 outside-\$HOME cwd read the in-home handoff (collision)"
+else
+  ok "17 outside-\$HOME cwd gets its own file"
+fi
+
+# 18. A $HOME containing glob metacharacters must still strip cleanly: an
+# unquoted \$home in the prefix-strip turns [1] into a character class and the
+# derived name silently changes.
+GLOB_HOME="$TMP/h[1]"
+mkdir -p "$GLOB_HOME/.claude/handoffs" "$GLOB_HOME/proj"
+printf 'glob home works\n' > "$GLOB_HOME/.claude/handoffs/proj.md"
+out=$(payload_for "$GLOB_HOME/proj" | HOME="$GLOB_HOME" "$HOOK")
+printf '%s' "$out" | grep -q 'glob home works' \
+  && ok "18 \$HOME with glob metacharacters" || ko "18"
 
 echo "---"
 [ "$fail" -eq 0 ] && echo "ALL TESTS PASS" || echo "SOME TESTS FAILED"

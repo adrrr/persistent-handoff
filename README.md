@@ -6,7 +6,7 @@ This is for agents that keep running: a personal assistant that has been up for 
 
 ## Disposable handoff, persistent handoff
 
-The usual handoff is deliberately throwaway. You are near the end of a coding session, you write a markdown file somewhere temporary, and you hand it to the session that takes over. [Matt Pocock's `handoff` skill](https://github.com/mattpocock/skills/blob/main/skills/productivity/handoff/SKILL.md) says it plainly: "Save to the temporary directory of the user's OS - not the current workspace." For a coding session you will close today, that is the right call. Use it.
+The usual handoff is deliberately throwaway. At a crossing — the end of a coding session, or a fork where you stay in your session and hand a copy of the context to a second agent working in parallel — you write a markdown file somewhere temporary, and its job ends when the receiving session has read it. [Matt Pocock's `handoff` skill](https://github.com/mattpocock/skills/blob/main/skills/productivity/handoff/SKILL.md) says it plainly: "Save to the temporary directory of the user's OS - not the current workspace." For a coding session you will close today, that is the right call. Use it.
 
 This repo makes the opposite bet on lifetime. The left column below describes the throwaway approach; the right column is what this repo does instead, and everything in it follows from that one choice.
 
@@ -15,7 +15,7 @@ This repo makes the opposite bet on lifetime. The left column below describes th
 | Location | a temp directory | `~/.claude/handoffs/<agent>.md` or the project repo |
 | How many | one per handoff | one per agent, ever |
 | Read back | you hand it to the next session | a `SessionStart` hook, every session, automatically |
-| Written | once, when the session is ending | at milestones, as the work advances |
+| Written | once, at a crossing — session end, or a fork to a parallel agent | at milestones, as the work advances |
 | Lifetime | until the next session picks it up | until the work it describes is done |
 | Deleted | when the OS clears its temp files | by the agent, the moment it is empty |
 
@@ -64,16 +64,18 @@ For an agent that is not tied to one directory, pin the path instead. The hook r
 "command": "PERSISTENT_HANDOFF_FILE=\"$HOME\"/.claude/handoffs/assistant.md \"$HOME\"/.claude/hooks/session-start-handoff.sh"
 ```
 
+One catch with the inline form: it sets the variable for the hook only. The agent never sees it, and the skill tells the agent to fall back on the directory slug when the variable is unset — so the first handoff it ever writes would land in the slug-named file while the hook keeps reading the pinned one, silently, forever. If the agent has to work out the path by itself, export the variable somewhere both the hook and the agent's shell inherit it (your shell profile, the launchd or systemd unit that starts the agent). The inline form is fine when you tell the agent explicitly where its handoff lives.
+
 Nothing happens until a handoff exists. The hook stays silent when the file is missing or empty, so installing it costs nothing on sessions with no state to carry. It uses `jq` when available and falls back to plain stdout otherwise, which Claude Code also accepts as context from a `SessionStart` hook.
 
-One limit worth knowing: Claude Code caps hook output at 10,000 characters and replaces anything longer with a preview and a file path. A handoff kept to the 300 to 500 tokens this skill asks for sits far below that, but a file that has been allowed to grow into a journal will arrive truncated.
+One limit worth knowing: Claude Code caps hook output at 10,000 characters and replaces anything longer with a preview and a file path. A handoff kept to the 300 to 500 tokens this skill asks for sits far below that, but a file that has been allowed to grow into a journal will arrive as a preview instead of its content.
 
 ## The contract
 
 1. One handoff per agent, never two. A state has one current value.
 2. It is read automatically at every session start. If a human has to remember to load it, it will be forgotten on the session where it mattered.
 3. It is written at milestones, by the agent, unprompted: a decision made, a PR opened or merged, an investigation concluded, a blocker hit, a question left with a human. Not after every message.
-4. Five sections. Where I am (where the work actually stands), next action (executable as written), open questions (what waits on a human), traps (what was learned the hard way: exact paths, gotchas, verified facts), and the skills the next session should load before resuming.
+4. Four sections, plus a fifth when it applies. Where I am (where the work actually stands), next action (executable as written), open questions (what waits on a human), traps (what was learned the hard way: exact paths, gotchas, verified facts), and — when the work depends on them — the skills the next session should load before resuming.
 5. Every update removes what is resolved. A handoff that only grows stops being read.
 6. Emptiness is legitimate. When nothing is left in flight, the file is deleted. There is no handoff written for the form of it.
 
@@ -139,7 +141,7 @@ The disagreement is about one root choice, the lifetime, and the rest of the tab
 
 ## Tests
 
-`bash tests/hook.sh` — 16 cases covering the hook's failure modes: path-slug collisions, a `jq` that exists but fails, a directory where the file should be, unreadable handoffs surfaced to the session instead of swallowed, and the 10,000-character context cap.
+`bash tests/hook.sh` — 18 cases covering the hook's failure modes: path-slug collisions inside and outside `$HOME`, a `$HOME` containing glob metacharacters, a `jq` that exists but fails, a directory where the file should be, unreadable handoffs surfaced to the session instead of swallowed, and the 10,000-character context cap.
 
 ## License
 
