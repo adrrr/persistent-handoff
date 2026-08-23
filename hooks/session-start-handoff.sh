@@ -53,6 +53,8 @@ if command -v jq >/dev/null 2>&1; then
   jq -n --arg ctx "$context" \
     '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $ctx}}'
 else
+  # The header stays first on purpose. A handoff whose own first line looks like
+  # JSON would otherwise be read as this hook's structured output.
   printf '%s\n' "$context"
 fi
 
