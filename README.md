@@ -2,11 +2,11 @@
 
 A handoff file that outlives the session that wrote it. Your agent keeps one single file, always the same one: updated at milestones, read back automatically at every session start, deleted when nothing is left in flight.
 
-This is for agents that keep running: a personal assistant that has been up for six months, a fleet of Claude Code sessions in tmux, a daemon that wakes on a cron. Their context dies often and rarely with a warning — compaction, a crash, a nightly restart. The next session needs the state of the work, not a summary of a dead conversation.
+This is for agents that keep running: a personal assistant that has been up for six months, a fleet of Claude Code sessions in tmux, a daemon that wakes on a cron. Their context dies often, rarely with a warning: compaction, a crash, a nightly restart. The next session needs the state of the work, not a summary of a dead conversation.
 
 ## Disposable handoff, persistent handoff
 
-The usual handoff is deliberately throwaway. At a crossing — the end of a coding session, or a fork where you stay in your session and hand a copy of the context to a second agent working in parallel — you write a markdown file somewhere temporary, and its job ends when the receiving session has read it. [Matt Pocock's `handoff` skill](https://github.com/mattpocock/skills/blob/main/skills/productivity/handoff/SKILL.md) says it plainly: "Save to the temporary directory of the user's OS - not the current workspace." For a coding session you will close today, that is the right call. Use it.
+The usual handoff is deliberately throwaway. At a crossing (end of a coding session, or a fork where you hand a copy of the context to a second agent working in parallel) you write a markdown file somewhere temporary, and its job ends when the receiving session has read it. [Matt Pocock's `handoff` skill](https://github.com/mattpocock/skills/blob/main/skills/productivity/handoff/SKILL.md) says it plainly: "Save to the temporary directory of the user's OS - not the current workspace." For a coding session you will close today, that is the right call. Use it.
 
 This repo makes the opposite bet on lifetime. The left column below describes the throwaway approach; the right column is what this repo does instead, and everything in it follows from that one choice.
 
@@ -15,7 +15,7 @@ This repo makes the opposite bet on lifetime. The left column below describes th
 | Location | a temp directory | `~/.claude/handoffs/<agent>.md` or the project repo |
 | How many | a new file each time | the same file, updated |
 | Read back | you hand it to the next session | a `SessionStart` hook, every session, automatically |
-| Written | once, at a crossing — session end, or a fork to a parallel agent | at milestones, as the work advances |
+| Written | once, at a crossing (session end, or a fork to a parallel agent) | at milestones, as the work advances |
 | Lifetime | until the next session picks it up | until the work it describes is done |
 | Deleted | when the OS clears its temp files | by the agent, the moment it is empty |
 
@@ -64,7 +64,7 @@ For an agent that is not tied to one directory, pin the path instead. The hook r
 "command": "PERSISTENT_HANDOFF_FILE=\"$HOME\"/.claude/handoffs/assistant.md \"$HOME\"/.claude/hooks/session-start-handoff.sh"
 ```
 
-One catch with the inline form: it sets the variable for the hook only. The agent never sees it, and the skill tells the agent to fall back on the directory slug when the variable is unset — so the first handoff it ever writes would land in the slug-named file while the hook keeps reading the pinned one, silently, forever. If the agent has to work out the path by itself, export the variable somewhere both the hook and the agent's shell inherit it (your shell profile, the launchd or systemd unit that starts the agent). The inline form is fine when you tell the agent explicitly where its handoff lives.
+One catch with the inline form: it sets the variable for the hook only. The agent never sees it, and the skill tells the agent to fall back on the directory slug when the variable is unset. The first handoff it ever writes would land in the slug-named file while the hook keeps reading the pinned one, silently, forever. If the agent has to work out the path by itself, export the variable somewhere both the hook and the agent's shell inherit it (your shell profile, the launchd or systemd unit that starts the agent). The inline form is fine when you tell the agent explicitly where its handoff lives.
 
 Nothing happens until a handoff exists. The hook stays silent when the file is missing or empty, so installing it costs nothing on sessions with no state to carry. It uses `jq` when available and falls back to plain stdout otherwise, which Claude Code also accepts as context from a `SessionStart` hook.
 
@@ -75,11 +75,11 @@ One limit worth knowing: Claude Code caps hook output at 10,000 characters and r
 1. One file, always the same one, never two. A state has one current value.
 2. It is read automatically at every session start. If a human has to remember to load it, it will be forgotten on the session where it mattered.
 3. It is written at milestones, by the agent, unprompted: a decision made, a PR opened or merged, an investigation concluded, a blocker hit, a question left with a human. Not after every message.
-4. Four sections, plus a fifth when it applies. Where I am (where the work actually stands), next action (executable as written), open questions (what waits on a human), traps (what was learned the hard way: exact paths, gotchas, verified facts), and — when the work depends on them — the skills the next session should load before resuming.
+4. Four sections, plus a fifth when it applies. Where I am (where the work actually stands), next action (executable as written), open questions (what waits on a human), traps (what was learned the hard way: exact paths, gotchas, verified facts), and, when the work depends on them, the skills the next session should load before resuming.
 5. Every update removes what is resolved. A handoff that only grows stops being read.
 6. Emptiness is legitimate. When nothing is left in flight, the file is deleted. There is no handoff written for the form of it.
 
-Point 6 is the first one people drop, and the rest leans on it — see the FAQ for why.
+Point 6 is the first one people drop, and the rest leans on it, see the FAQ for why.
 
 ## What one looks like
 
@@ -117,7 +117,7 @@ Around 300 to 500 tokens is the useful range. Below that you are usually hiding 
 
 **Why not just use `/compact`?**
 
-Compaction summarizes the transcript, and the model decides what survives. A handoff records what you decided matters, in your words, and it is a file: it survives a crash, a `kill -9`, a machine reboot and a fresh clone, none of which give the model a chance to summarize anything. Use both — compact when the context fills up, keep a handoff for the times nothing gets the chance to run.
+Compaction summarizes the transcript, and the model decides what survives. A handoff records what you decided matters, in your words, and it is a file: it survives a crash, a `kill -9`, a machine reboot and a fresh clone, none of which give the model a chance to summarize anything. Use both: compact when the context fills up, keep a handoff for the times nothing gets the chance to run.
 
 **Why delete the file when it is empty?**
 
@@ -137,11 +137,11 @@ That is fine for `~/.claude/handoffs`, which only you write to. It is worth a se
 
 The disposable handoff pattern comes from [Matt Pocock's skills repo](https://github.com/mattpocock/skills) (MIT), and so does the idea of naming the skills the next agent should load: "Include a 'suggested skills' section in the document, naming which skills the next agent should call the Skill tool for." That repo is worth reading whether or not you keep agents running. No code from it is reused here; the credit is for the ideas.
 
-The disagreement is about one root choice, the lifetime, and the rest of the table follows from it. It exists because the two of us are aiming at different kinds of agent, not because either lifetime is wrong. (His repo also carries an in-progress `claude-handoff` skill that turns a handoff into a background agent's prompt without saving it anywhere — a third lifetime, shorter still.)
+The disagreement is about one root choice, the lifetime, and the rest of the table follows from it. We aim at different kinds of agent, that is the whole disagreement. (His repo also carries an in-progress `claude-handoff` skill that turns a handoff into a background agent's prompt without saving it anywhere, a third lifetime, shorter still.)
 
 ## Tests
 
-`bash tests/hook.sh` — 18 cases covering the hook's failure modes: path-slug collisions inside and outside `$HOME`, a `$HOME` containing glob metacharacters, a `jq` that exists but fails, a directory where the file should be, unreadable handoffs surfaced to the session instead of swallowed, and the 10,000-character context cap.
+`bash tests/hook.sh`, 18 cases covering the hook's failure modes: path-slug collisions inside and outside `$HOME`, a `$HOME` containing glob metacharacters, a `jq` that exists but fails, a directory where the file should be, unreadable handoffs surfaced to the session instead of swallowed, and the 10,000-character context cap.
 
 ## License
 
