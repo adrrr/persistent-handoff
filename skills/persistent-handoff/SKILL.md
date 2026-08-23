@@ -51,7 +51,7 @@ Every update deletes what is resolved or stale. A file that only grows is a jour
 
 Rewrite it in place. If several sessions of the same agent can be alive at once, write to a temporary file and move it over the handoff, so a session that starts mid-write never reads half a file.
 
-Emptiness is legitimate. If an update empties the handoff, delete the file. An empty handoff still costs context at every session start and tells the next session nothing. Its absence is the signal: nothing is in flight.
+Emptiness is legitimate. If an update empties the handoff, delete the file. An empty handoff still costs context at every session start and tells the next session nothing; its absence already says it: nothing is in flight.
 
 The same rule applies before writing the first one. A milestone with nothing in flight writes no handoff.
 

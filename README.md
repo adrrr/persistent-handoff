@@ -2,7 +2,7 @@
 
 A handoff file that outlives the session that wrote it. One file per agent, updated at milestones, read back automatically at every session start, and deleted when nothing is left in flight.
 
-This is for agents that keep running: a personal assistant that has been up for six months, a fleet of Claude Code sessions in tmux, a daemon that wakes on a cron. They lose their context constantly, and they lose it without warning. What they need is not a summary of the conversation, it is the state of the work.
+This is for agents that keep running: a personal assistant that has been up for six months, a fleet of Claude Code sessions in tmux, a daemon that wakes on a cron. Their context dies often and rarely with a warning — compaction, a crash, a nightly restart. The next session needs the state of the work, not a summary of a dead conversation.
 
 ## Disposable handoff, persistent handoff
 
@@ -19,7 +19,7 @@ This repo makes the opposite bet on lifetime. The left column below describes th
 | Lifetime | until the next session picks it up | until the work it describes is done |
 | Deleted | when the OS clears its temp files | by the agent, the moment it is empty |
 
-The second row is where the difference bites. A disposable handoff is an event, so having ten of them is normal. A persistent handoff is a state, so having two is a bug: the next session reads the stale one and acts on work that finished last week.
+The second row is the important one. A disposable handoff is an event, so having ten of them is normal. A persistent handoff is a state, so having two is a bug: the next session reads the stale one and acts on work that finished last week.
 
 ## Quick start
 
@@ -79,7 +79,7 @@ One limit worth knowing: Claude Code caps hook output at 10,000 characters and r
 5. Every update removes what is resolved. A handoff that only grows stops being read.
 6. Emptiness is legitimate. When nothing is left in flight, the file is deleted. There is no handoff written for the form of it.
 
-Point 6 is the one I would expect to get dropped first, and it is the one that keeps the rest honest. A file that is always there is a file nobody reads.
+Point 6 is the first one people drop, and the rest leans on it — see the FAQ for why.
 
 ## What one looks like
 
@@ -117,11 +117,11 @@ Around 300 to 500 tokens is the useful range. Below that you are usually hiding 
 
 **Why not just use `/compact`?**
 
-Compaction summarizes the transcript, and the model decides what survives. A handoff records what you decided matters, in your words, and it is a file: it survives a crash, a `kill -9`, a machine reboot and a fresh clone, none of which give the model a chance to summarize anything. The two are not in competition. Compact when the context is full, and keep a handoff so that it does not matter if you never get the chance.
+Compaction summarizes the transcript, and the model decides what survives. A handoff records what you decided matters, in your words, and it is a file: it survives a crash, a `kill -9`, a machine reboot and a fresh clone, none of which give the model a chance to summarize anything. Use both — compact when the context fills up, keep a handoff for the times nothing gets the chance to run.
 
 **Why delete the file when it is empty?**
 
-Because it is read at every single session start. A handoff that is always present, half stale, describing work that finished last week, teaches every new session to skim it. Deleting it makes its presence meaningful: if the file is there, something is genuinely in flight. The absence is the signal.
+Because it is read at every single session start. A handoff that is always present, half stale, describing work that finished last week, teaches every new session to skim it. Deleting it keeps the file meaningful: if it is there, something is genuinely in flight.
 
 **My agent is a coding session I close at the end of the day. Do I want this?**
 
