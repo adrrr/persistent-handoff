@@ -90,7 +90,7 @@ The same rule applies before writing the first one. A milestone with nothing in 
 
 ## On resume
 
-When the hook is installed, the handoff is already in your context and you do not need to open the file to know where things stand. Start from "Next action" and raise the open questions if any of them block you. If nothing was injected and you have reason to expect a handoff, read the file yourself rather than concluding there is none: a hook that was never wired up looks exactly like an agent with nothing in flight.
+When the hook is installed, the handoff is already in your context and you do not need to open the file to know where things stand. Start from "Next action" and raise the open questions if any of them block you. If nothing was injected and you have reason to expect a handoff, read the file yourself rather than concluding there is none: a hook that was never wired up looks exactly like an agent with nothing in flight. Same reflex if the injected text looks cut short: hook output is capped, the file is the full version.
 
 Opening it again is for updating, not for catching up. At the next milestone, read the file (most edit tools require it) and rewrite it in place, dropping what you resolved along the way.
 

@@ -21,6 +21,18 @@ This repo makes the opposite bet on lifetime. In the table below, Disposable is 
 
 The second row is the important one. A disposable handoff is an event, so having ten of them is normal. A persistent handoff is a state, so having two is a bug: the next session reads the stale one and acts on work that finished last week.
 
+## The loop
+
+```mermaid
+flowchart LR
+    M([milestone]) -- "update in place,\nprune what resolved" --> H[(the one file)]
+    H -- "SessionStart hook\ninjects it" --> S([fresh session])
+    S -- "works, reaches\na milestone" --> M
+    H -- "nothing left\nin flight" --> X([file deleted])
+```
+
+The loop runs until the work is done. Then the file is gone.
+
 ## Quick start
 
 Copy the skill and the hook, then wire the hook into your settings.
