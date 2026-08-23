@@ -51,7 +51,9 @@ The same rule applies before writing the first one. A milestone with nothing in 
 
 ## On resume
 
-The hook has already placed the handoff in context. Do not re-read the file. Start from "Next action", raise the open questions if any block you, and delete what you have just resolved.
+The hook has already placed the handoff in context, so you do not need to open the file to know where things stand. Start from "Next action" and raise the open questions if any of them block you.
+
+Opening it again is for writing, not for reading: at the next milestone, read the file (most edit tools require it) and rewrite it in place, dropping what you resolved along the way.
 
 ## Common mistakes
 
