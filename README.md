@@ -84,7 +84,7 @@ Point 6 is the first one people drop, and the rest leans on it, see the FAQ for 
 ## What one looks like
 
 ```markdown
-# Handoff - homelab
+# Handoff: homelab
 
 ## Where I am
 The nightly backup to the NAS has been failing since Aug 19. Cause found: restic is
