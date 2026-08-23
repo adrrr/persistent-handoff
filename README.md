@@ -6,20 +6,20 @@ This is for agents that keep running: a personal assistant that has been up for 
 
 ## Disposable handoff, persistent handoff
 
-The handoff pattern most people have seen is deliberately throwaway. You are near the end of a coding session, you write a markdown file into the OS temp directory, the next session reads it once and moves on. [Matt Pocock's `handoff` skill](https://github.com/mattpocock/skills) does exactly that, and for a coding session you will close today it is the right tool. Use it.
+The handoff pattern most people have seen is deliberately throwaway. You are near the end of a coding session, you write a markdown file somewhere temporary, and you hand it to the session that takes over. [Matt Pocock's `handoff` skill](https://github.com/mattpocock/skills/blob/main/skills/productivity/handoff/SKILL.md) says it plainly: "Save to the temporary directory of the user's OS - not the current workspace." For a coding session you will close today, that is the right call. Use it.
 
 This repo takes the opposite bet on lifetime.
 
 | | Disposable | Persistent |
 |---|---|---|
-| Location | OS temp directory | `~/.claude/handoffs/<agent>.md` or the project repo |
+| Location | the OS temp directory | `~/.claude/handoffs/<agent>.md` or the project repo |
 | How many | one per handoff event | one per agent, ever |
-| Read back | you point the next session at it | a `SessionStart` hook, every session |
-| Written | when context is about to run out | at milestones, as the work advances |
+| Read back | you hand it to the next session | a `SessionStart` hook, every session, automatically |
+| Written | once, when the session is ending | at milestones, as the work advances |
 | Lifetime | until the next session picks it up | until the work it describes is done |
 | Deleted | by the OS, eventually | by the agent, the moment it is empty |
 
-The distinction that matters is the second row. A disposable handoff is an event, so having ten of them is normal. A persistent handoff is a state, so having two is a bug: the next session reads the wrong one, or reads three and believes the oldest.
+The row that matters is the second one. A disposable handoff is an event, so having ten of them is normal. A persistent handoff is a state, so having two is a bug: the next session reads the stale one and acts on work that finished last week.
 
 ## Quick start
 
@@ -27,6 +27,7 @@ Copy the skill and the hook, then wire the hook into your settings.
 
 ```bash
 git clone https://github.com/adrrr/persistent-handoff /tmp/persistent-handoff
+mkdir -p ~/.claude/skills ~/.claude/hooks ~/.claude/handoffs
 cp -r /tmp/persistent-handoff/skills/persistent-handoff ~/.claude/skills/
 install -m 755 /tmp/persistent-handoff/hooks/session-start-handoff.sh ~/.claude/hooks/
 ```
@@ -116,7 +117,7 @@ Probably not. Persistence buys you nothing when the agent dies on purpose after 
 
 ## Credits
 
-The disposable handoff pattern and the idea of naming the skills the next session should invoke both come from [Matt Pocock's skills repo](https://github.com/mattpocock/skills), which is worth reading whether or not you keep agents running. This repo disagrees with exactly one of its design choices, the lifetime, and only because it is aimed at a different kind of agent.
+The disposable handoff pattern comes from [Matt Pocock's skills repo](https://github.com/mattpocock/skills) (MIT), and so does the idea of naming the skills the next agent should load: "Include a 'suggested skills' section in the document, naming which skills the next agent should call the Skill tool for." That repo is worth reading whether or not you keep agents running. This one disagrees with exactly one of its design choices, the lifetime, and only because it aims at a different kind of agent.
 
 ## License
 
