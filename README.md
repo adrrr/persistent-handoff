@@ -1,6 +1,6 @@
 # persistent-handoff
 
-A handoff file that outlives the session that wrote it. Your agent keeps one single file — always the same one — updates it at milestones, gets it read back automatically at every session start, and deletes it when nothing is left in flight.
+A handoff file that outlives the session that wrote it. Your agent keeps one single file, always the same one: updated at milestones, read back automatically at every session start, deleted when nothing is left in flight.
 
 This is for agents that keep running: a personal assistant that has been up for six months, a fleet of Claude Code sessions in tmux, a daemon that wakes on a cron. Their context dies often and rarely with a warning — compaction, a crash, a nightly restart. The next session needs the state of the work, not a summary of a dead conversation.
 
