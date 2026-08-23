@@ -1,6 +1,6 @@
 ---
 name: persistent-handoff
-description: Use when an agent works across many sessions and its context will not survive - at a milestone (a decision made, a PR opened or merged, an investigation concluded, a blocker hit, a question left with the human), when context grows heavy and a restart or compact is coming, or when the user says "write a handoff", "note where you are", "prepare a restart".
+description: Use when an agent's work must survive the death of its context, or when a fresh session must learn where the work stands before acting - after a restart, recycle, crash or reboot of a long-running agent (personal assistant, fleet session, cron daemon), when a compact or auto-compact is near, at any milestone of multi-session work (a decision made, a PR opened or merged, an investigation concluded, a blocker hit, a question left waiting on a human), or when the user says "write a handoff", "note where you are", "prepare a restart".
 ---
 
 # Persistent handoff
@@ -8,6 +8,18 @@ description: Use when an agent works across many sessions and its context will n
 An agent that runs for weeks loses its context many times: restarts, compacts, crashes, machine reboots. The handoff is the one file that survives those deaths. It holds where the work stands, what to do next, and what a fresh session would otherwise have to relearn the hard way.
 
 One handoff per agent. It is a state, not a journal.
+
+## Quick reference
+
+| Rule | In practice |
+|---|---|
+| One file per agent | Edit in place. Never a second file, never a dated copy |
+| Read at every session start | The `SessionStart` hook injects it; you rarely open it to read |
+| Written at milestones | Decision, PR, conclusion, blocker, unanswered question |
+| State, not narrative | Where things stand, not how they got there |
+| 300-500 tokens | Below: vague. Above: journal |
+| Prune on every update | Resolved items go; the file shrinks as work completes |
+| Empty means delete | No file is a valid state: nothing in flight |
 
 ## When to write
 
@@ -45,6 +57,27 @@ Roughly 300 to 500 tokens, four sections plus a fifth when it applies:
 
 **Skills to invoke on resume.** Name the skills the current work depends on, so the next session loads them before starting instead of rediscovering them halfway. Omit the section if none apply.
 
+The shape, filled in with whatever the work actually is:
+
+```markdown
+# Handoff - <agent>
+
+## Where I am
+<the state, with dates and numbers, not the story>
+
+## Next action
+<one step, executable as written>
+
+## Open questions
+<what waits on a human, and since when>
+
+## Traps
+- <exact path, verified fact, or failed approach — one line each>
+
+## Skills to invoke on resume
+<names, only if the work depends on them>
+```
+
 ## Clean as you advance
 
 Every update deletes what is resolved or stale. A file that only grows is a journal, and nobody reads a journal at boot.
@@ -71,6 +104,8 @@ Opening it again is for writing, not for reading. At the next milestone, read th
 | Writing a handoff with nothing in it | Burns context at every start to say nothing |
 | Vague next action ("continue the migration") | A fresh session spends its first ten minutes deciding what that means |
 | Putting durable knowledge in the handoff | Mechanisms, ops commands and stable facts belong in a README, an instructions file or the agent's memory. The handoff carries what is in flight |
+| "I'll keep the old handoff for reference" | That is two files, and the next session cannot tell which one is current. The transcript is the reference |
+| "This milestone is too small to note" | If it changed the next action or answered an open question, it is not |
 
 ## What this skill does not cover
 
