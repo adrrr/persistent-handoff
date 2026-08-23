@@ -1,6 +1,6 @@
 ---
 name: persistent-handoff
-description: Use when an agent's work must survive the death of its context, or when a fresh session must learn where the work stands before acting - after a restart, recycle, crash or reboot of a long-running agent (personal assistant, fleet session, cron daemon), when a compact or auto-compact is near, at any milestone of multi-session work (a decision made, a PR opened or merged, an investigation concluded, a blocker hit, a question left waiting on a human), or when the user says "write a handoff", "note where you are", "prepare a restart".
+description: Use when an agent's work must survive the death of its context, or when a fresh session must learn where the work stands before acting: after a restart, recycle, crash or reboot of a long-running agent (personal assistant, fleet session, cron daemon), when a compact or auto-compact is near, at any milestone of multi-session work (a decision made, a PR opened or merged, an investigation concluded, a blocker hit, a question left waiting on a human), or when the user says "write a handoff", "note where you are", "prepare a restart".
 ---
 
 # Persistent handoff
@@ -60,7 +60,7 @@ Roughly 300 to 500 tokens, four sections plus a fifth when it applies:
 The shape, filled in with whatever the work actually is:
 
 ```markdown
-# Handoff - <agent>
+# Handoff: <agent>
 
 ## Where I am
 <the state, with dates and numbers, not the story>
