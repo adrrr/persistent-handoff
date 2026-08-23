@@ -135,7 +135,11 @@ That is fine for `~/.claude/handoffs`, which only you write to. It is worth a se
 
 The disposable handoff pattern comes from [Matt Pocock's skills repo](https://github.com/mattpocock/skills) (MIT), and so does the idea of naming the skills the next agent should load: "Include a 'suggested skills' section in the document, naming which skills the next agent should call the Skill tool for." That repo is worth reading whether or not you keep agents running. No code from it is reused here; the credit is for the ideas.
 
-The disagreement is about one root choice, the lifetime, and the rest of the table follows from it. It exists because the two of us are aiming at different kinds of agent, not because either lifetime is wrong.
+The disagreement is about one root choice, the lifetime, and the rest of the table follows from it. It exists because the two of us are aiming at different kinds of agent, not because either lifetime is wrong. (His repo also carries an in-progress `claude-handoff` skill that turns a handoff into a background agent's prompt without saving it anywhere — a third lifetime, shorter still.)
+
+## Tests
+
+`bash tests/hook.sh` — 16 cases covering the hook's failure modes: path-slug collisions, a `jq` that exists but fails, a directory where the file should be, unreadable handoffs surfaced to the session instead of swallowed, and the 10,000-character context cap.
 
 ## License
 
