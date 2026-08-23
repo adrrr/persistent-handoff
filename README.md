@@ -1,6 +1,6 @@
 # persistent-handoff
 
-A handoff file that outlives the session that wrote it. One file per agent, updated at milestones, read back automatically at every session start, and deleted when nothing is left in flight.
+A handoff file that outlives the session that wrote it. Your agent keeps one single file — always the same one — updates it at milestones, gets it read back automatically at every session start, and deletes it when nothing is left in flight.
 
 This is for agents that keep running: a personal assistant that has been up for six months, a fleet of Claude Code sessions in tmux, a daemon that wakes on a cron. Their context dies often and rarely with a warning — compaction, a crash, a nightly restart. The next session needs the state of the work, not a summary of a dead conversation.
 
@@ -13,7 +13,7 @@ This repo makes the opposite bet on lifetime. The left column below describes th
 | | Disposable | Persistent |
 |---|---|---|
 | Location | a temp directory | `~/.claude/handoffs/<agent>.md` or the project repo |
-| How many | one per handoff | one per agent, ever |
+| How many | a new file each time | the same file, updated |
 | Read back | you hand it to the next session | a `SessionStart` hook, every session, automatically |
 | Written | once, at a crossing — session end, or a fork to a parallel agent | at milestones, as the work advances |
 | Lifetime | until the next session picks it up | until the work it describes is done |
@@ -72,7 +72,7 @@ One limit worth knowing: Claude Code caps hook output at 10,000 characters and r
 
 ## The contract
 
-1. One handoff per agent, never two. A state has one current value.
+1. One file, always the same one, never two. A state has one current value.
 2. It is read automatically at every session start. If a human has to remember to load it, it will be forgotten on the session where it mattered.
 3. It is written at milestones, by the agent, unprompted: a decision made, a PR opened or merged, an investigation concluded, a blocker hit, a question left with a human. Not after every message.
 4. Four sections, plus a fifth when it applies. Where I am (where the work actually stands), next action (executable as written), open questions (what waits on a human), traps (what was learned the hard way: exact paths, gotchas, verified facts), and — when the work depends on them — the skills the next session should load before resuming.

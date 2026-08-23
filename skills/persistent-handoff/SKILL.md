@@ -7,13 +7,13 @@ description: Use when an agent's work must survive the death of its context, or 
 
 An agent that runs for weeks loses its context many times: restarts, compacts, crashes, machine reboots. The handoff is the one file that survives those deaths. It holds where the work stands, what to do next, and what a fresh session would otherwise have to relearn the hard way.
 
-One handoff per agent. It is a state, not a journal.
+An agent has one handoff file — always the same one. It is a state, not a journal.
 
 ## Quick reference
 
 | Rule | In practice |
 |---|---|
-| One file per agent | Edit in place. Never a second file, never a dated copy |
+| The same file, always | Edit it in place. Never a second file, never a dated copy |
 | Read at every session start | The `SessionStart` hook injects it; you rarely open it to read |
 | Written at milestones | Decision, PR, conclusion, blocker, unanswered question |
 | State, not narrative | Where things stand, not how they got there |
