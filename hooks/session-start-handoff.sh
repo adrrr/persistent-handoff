@@ -31,7 +31,14 @@ if [ -z "$handoff_file" ]; then
     cwd=$(printf '%s' "$payload" | jq -r '.cwd // empty' 2>/dev/null)
   fi
   [ -n "$cwd" ] || cwd="$PWD"
-  handoff_file="$HOME/.claude/handoffs/$(basename "$cwd").md"
+  handoff_file="${HOME:-$PWD}/.claude/handoffs/$(basename "$cwd").md"
+fi
+
+# A handoff that exists but cannot be read is a misconfiguration, not an absence.
+# Say so on stderr, where the user sees it, and still let the session start.
+if [ -e "$handoff_file" ] && [ ! -r "$handoff_file" ]; then
+  printf 'session-start-handoff: %s exists but is not readable\n' "$handoff_file" >&2
+  exit 0
 fi
 
 # No handoff, or an empty one: print nothing and exit clean. Silence is the
