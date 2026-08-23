@@ -7,7 +7,7 @@ description: Use when an agent's work must survive the death of its context, or 
 
 An agent that runs for weeks loses its context many times: restarts, compacts, crashes, machine reboots. The handoff is the one file that survives those deaths. It holds where the work stands, what to do next, and what a fresh session would otherwise have to relearn the hard way.
 
-An agent has one handoff file — always the same one. It is a state, not a journal.
+An agent has one handoff file, always the same one. It is a state, not a journal.
 
 ## Quick reference
 
@@ -72,7 +72,7 @@ The shape, filled in with whatever the work actually is:
 <what waits on a human, and since when>
 
 ## Traps
-- <exact path, verified fact, or failed approach — one line each>
+- <exact path, verified fact, or failed approach, one line each>
 
 ## Skills to invoke on resume
 <names, only if the work depends on them>
