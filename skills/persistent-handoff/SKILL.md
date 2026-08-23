@@ -23,7 +23,9 @@ Not after every message. The transcript already keeps the conversation. The hand
 
 ## Where it lives
 
-One path, chosen once, used by every session of this agent. Default `~/.claude/handoffs/<agent-name>.md`, or a path in the project repo if the agent is bound to one. The `SessionStart` hook reads that exact path. A handoff written anywhere else is never read.
+One path, chosen once, used by every session of this agent: `~/.claude/handoffs/<agent>.md`, or a path in the project repo if the agent is bound to one. The `SessionStart` hook reads that exact path, and a handoff written anywhere else is never read.
+
+The hook shipped with this skill derives `<agent>` from the name of the working directory, so a per-project agent needs no configuration. Set `PERSISTENT_HANDOFF_FILE` when the agent is not tied to one directory.
 
 Never two files. If a handoff already exists, edit it in place. Do not stamp it with a date, do not keep the previous one for reference, do not open a second one for a second subject. Two handoffs mean the next session reads the wrong one.
 
