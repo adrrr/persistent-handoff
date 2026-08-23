@@ -1,6 +1,6 @@
 ---
 name: persistent-handoff
-description: Use when an agent works across many sessions and its context will not survive - at a milestone (a decision made, a PR opened or merged, an investigation concluded, a blocker hit, a question left with the human), when context grows heavy and a restart or compact is coming, when the user says "write a handoff", "note where you are", "prepare a restart", or at the start of a session that resumes earlier work.
+description: Use when an agent works across many sessions and its context will not survive - at a milestone (a decision made, a PR opened or merged, an investigation concluded, a blocker hit, a question left with the human), when context grows heavy and a restart or compact is coming, or when the user says "write a handoff", "note where you are", "prepare a restart".
 ---
 
 # Persistent handoff
@@ -23,15 +23,17 @@ Not after every message. The transcript already keeps the conversation. The hand
 
 ## Where it lives
 
-One path, chosen once, used by every session of this agent: `~/.claude/handoffs/<agent>.md`, or a path in the project repo if the agent is bound to one. The `SessionStart` hook reads that exact path, and a handoff written anywhere else is never read.
+One path, chosen once, used by every session of this agent. The `SessionStart` hook reads that exact path, and a handoff written anywhere else is never read by anyone.
 
-The hook shipped with this skill derives `<agent>` from the name of the working directory, so a per-project agent needs no configuration. Set `PERSISTENT_HANDOFF_FILE` when the agent is not tied to one directory.
+The hook shipped with this skill uses `PERSISTENT_HANDOFF_FILE` when that variable is set. Otherwise it builds the name from the working directory, relative to the home directory, with the separators turned into dashes: an agent running in `~/work/acme/api` gets `~/.claude/handoffs/work-acme-api.md`. The whole path is used rather than the last segment alone, so `~/work/beta/api` is a different agent with its own file.
+
+When you write the first handoff and nothing exists yet, that rule is how you work out where it goes.
 
 Never two files. If a handoff already exists, edit it in place. Do not stamp it with a date, do not keep the previous one for reference, do not open a second one for a second subject. Two handoffs mean the next session reads the wrong one.
 
 ## What goes in it
 
-Roughly 300 to 500 tokens, five sections:
+Roughly 300 to 500 tokens, four sections plus a fifth when it applies:
 
 **Where I am.** The real state, not the story of how you got there.
 
@@ -47,15 +49,17 @@ Roughly 300 to 500 tokens, five sections:
 
 Every update deletes what is resolved or stale. A file that only grows is a journal, and nobody reads a journal at boot.
 
+Rewrite it in place. If several sessions of the same agent can be alive at once, write to a temporary file and move it over the handoff, so a session that starts mid-write never reads half a file.
+
 Emptiness is legitimate. If an update empties the handoff, delete the file. An empty handoff still costs context at every session start and tells the next session nothing. Its absence is the signal: nothing is in flight.
 
 The same rule applies before writing the first one. A milestone with nothing in flight writes no handoff.
 
 ## On resume
 
-The hook has already placed the handoff in context, so you do not need to open the file to know where things stand. Start from "Next action" and raise the open questions if any of them block you.
+When the hook is installed, the handoff is already in your context and you do not need to open the file to know where things stand. Start from "Next action" and raise the open questions if any of them block you. If nothing was injected and you have reason to expect a handoff, read the file yourself rather than concluding there is none: a hook that was never wired up looks exactly like an agent with nothing in flight.
 
-Opening it again is for writing, not for reading: at the next milestone, read the file (most edit tools require it) and rewrite it in place, dropping what you resolved along the way.
+Opening it again is for writing, not for reading. At the next milestone, read the file (most edit tools require it) and rewrite it in place, dropping what you resolved along the way.
 
 ## Common mistakes
 

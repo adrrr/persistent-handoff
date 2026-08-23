@@ -6,31 +6,33 @@ This is for agents that keep running: a personal assistant that has been up for 
 
 ## Disposable handoff, persistent handoff
 
-The handoff pattern most people have seen is deliberately throwaway. You are near the end of a coding session, you write a markdown file somewhere temporary, and you hand it to the session that takes over. [Matt Pocock's `handoff` skill](https://github.com/mattpocock/skills/blob/main/skills/productivity/handoff/SKILL.md) says it plainly: "Save to the temporary directory of the user's OS - not the current workspace." For a coding session you will close today, that is the right call. Use it.
+The usual handoff is deliberately throwaway. You are near the end of a coding session, you write a markdown file somewhere temporary, and you hand it to the session that takes over. [Matt Pocock's `handoff` skill](https://github.com/mattpocock/skills/blob/main/skills/productivity/handoff/SKILL.md) says it plainly: "Save to the temporary directory of the user's OS - not the current workspace." For a coding session you will close today, that is the right call. Use it.
 
-This repo takes the opposite bet on lifetime.
+This repo makes the opposite bet on lifetime. The left column below describes the throwaway approach; the right column is what this repo does instead, and everything in it follows from that one choice.
 
 | | Disposable | Persistent |
 |---|---|---|
-| Location | the OS temp directory | `~/.claude/handoffs/<agent>.md` or the project repo |
-| How many | one per handoff event | one per agent, ever |
+| Location | a temp directory | `~/.claude/handoffs/<agent>.md` or the project repo |
+| How many | one per handoff | one per agent, ever |
 | Read back | you hand it to the next session | a `SessionStart` hook, every session, automatically |
 | Written | once, when the session is ending | at milestones, as the work advances |
 | Lifetime | until the next session picks it up | until the work it describes is done |
-| Deleted | by the OS, eventually | by the agent, the moment it is empty |
+| Deleted | when the OS clears its temp files | by the agent, the moment it is empty |
 
-The row that matters is the second one. A disposable handoff is an event, so having ten of them is normal. A persistent handoff is a state, so having two is a bug: the next session reads the stale one and acts on work that finished last week.
+The second row is where the difference bites. A disposable handoff is an event, so having ten of them is normal. A persistent handoff is a state, so having two is a bug: the next session reads the stale one and acts on work that finished last week.
 
 ## Quick start
 
 Copy the skill and the hook, then wire the hook into your settings.
 
 ```bash
-git clone https://github.com/adrrr/persistent-handoff /tmp/persistent-handoff
-mkdir -p ~/.claude/skills ~/.claude/hooks ~/.claude/handoffs
-cp -r /tmp/persistent-handoff/skills/persistent-handoff ~/.claude/skills/
-install -m 755 /tmp/persistent-handoff/hooks/session-start-handoff.sh ~/.claude/hooks/
+src=$(mktemp -d) && git clone https://github.com/adrrr/persistent-handoff "$src"
+mkdir -p ~/.claude/skills/persistent-handoff ~/.claude/hooks ~/.claude/handoffs
+cp -r "$src"/skills/persistent-handoff/. ~/.claude/skills/persistent-handoff/
+install -m 755 "$src"/hooks/session-start-handoff.sh ~/.claude/hooks/
 ```
+
+The `cp` copies the contents rather than the directory, so running the install twice updates the skill instead of nesting a copy inside it.
 
 Then add the hook to `~/.claude/settings.json` (or a project `.claude/settings.json`):
 
@@ -42,7 +44,7 @@ Then add the hook to `~/.claude/settings.json` (or a project `.claude/settings.j
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.claude/hooks/session-start-handoff.sh",
+            "command": "\"$HOME\"/.claude/hooks/session-start-handoff.sh",
             "timeout": 10
           }
         ]
@@ -54,20 +56,28 @@ Then add the hook to `~/.claude/settings.json` (or a project `.claude/settings.j
 
 There is no `matcher`, so the hook runs on every kind of start: `startup`, `resume`, `clear`, `compact` and `fork`. Firing after a compact is the point, not an accident. That is the moment the session has just lost the detail the handoff carries.
 
-By default the hook reads `~/.claude/handoffs/<basename of the working directory>.md`, which gives each project its own handoff with no configuration. Export `PERSISTENT_HANDOFF_FILE` to pin an explicit path instead, which is what you want for an agent that is not tied to one directory. The hook uses `jq` when it is installed, and falls back to plain stdout when it is not.
+By default the hook names the handoff after the working directory, relative to your home directory, with the separators turned into dashes: an agent running in `~/work/acme/api` reads `~/.claude/handoffs/work-acme-api.md`. It uses the whole path rather than the last segment, so `~/work/beta/api` gets its own file instead of quietly sharing one with every other directory called `api`.
 
-Nothing happens until a handoff exists. The hook stays silent when the file is missing or empty, so installing it costs nothing on sessions that have no state to carry.
+For an agent that is not tied to one directory, pin the path instead. The hook reads `PERSISTENT_HANDOFF_FILE`, and the shell form of the hook command is the simplest place to set it:
+
+```json
+"command": "PERSISTENT_HANDOFF_FILE=\"$HOME\"/.claude/handoffs/assistant.md \"$HOME\"/.claude/hooks/session-start-handoff.sh"
+```
+
+Nothing happens until a handoff exists. The hook stays silent when the file is missing or empty, so installing it costs nothing on sessions with no state to carry. It uses `jq` when available and falls back to plain stdout otherwise, which Claude Code also accepts as context from a `SessionStart` hook.
+
+One limit worth knowing: Claude Code caps hook output at 10,000 characters and replaces anything longer with a preview and a file path. A handoff kept to the 300 to 500 tokens this skill asks for sits far below that, but a file that has been allowed to grow into a journal will arrive truncated.
 
 ## The contract
 
-1. One handoff per agent, never two. It is a state, not a journal, and a state has one current value.
+1. One handoff per agent, never two. A state has one current value.
 2. It is read automatically at every session start. If a human has to remember to load it, it will be forgotten on the session where it mattered.
 3. It is written at milestones, by the agent, unprompted: a decision made, a PR opened or merged, an investigation concluded, a blocker hit, a question left with a human. Not after every message.
-4. Five sections. Where I am (the real state, not the narrative), next action (executable as written), open questions (what waits on a human), traps (what was learned the hard way: exact paths, gotchas, verified facts), and the skills the next session should load before resuming.
+4. Five sections. Where I am (where the work actually stands), next action (executable as written), open questions (what waits on a human), traps (what was learned the hard way: exact paths, gotchas, verified facts), and the skills the next session should load before resuming.
 5. Every update removes what is resolved. A handoff that only grows stops being read.
 6. Emptiness is legitimate. When nothing is left in flight, the file is deleted. There is no handoff written for the form of it.
 
-Point 6 is the one people skip, and it is the one that keeps the rest honest. A file that is always there is a file nobody reads.
+Point 6 is the one I would expect to get dropped first, and it is the one that keeps the rest honest. A file that is always there is a file nobody reads.
 
 ## What one looks like
 
@@ -115,9 +125,17 @@ Because it is read at every single session start. A handoff that is always prese
 
 Probably not. Persistence buys you nothing when the agent dies on purpose after one task, and the bookkeeping (edit in place, prune what is resolved, delete when empty) is real work. Use a disposable handoff instead.
 
+## One caution about where you put it
+
+The hook feeds the handoff straight into a fresh session as context, and the file tells that session what to do next. Treat it as executable input, not as documentation.
+
+That is fine for `~/.claude/handoffs`, which only you write to. It is worth a second thought inside a repo: a handoff committed to a project means anyone who can push to that project can write text that lands in your agent's context the next time you open a session there. Keep a versioned handoff to repos whose writers you trust, and use the home directory for anything else.
+
 ## Credits
 
-The disposable handoff pattern comes from [Matt Pocock's skills repo](https://github.com/mattpocock/skills) (MIT), and so does the idea of naming the skills the next agent should load: "Include a 'suggested skills' section in the document, naming which skills the next agent should call the Skill tool for." That repo is worth reading whether or not you keep agents running. This one disagrees with exactly one of its design choices, the lifetime, and only because it aims at a different kind of agent.
+The disposable handoff pattern comes from [Matt Pocock's skills repo](https://github.com/mattpocock/skills) (MIT), and so does the idea of naming the skills the next agent should load: "Include a 'suggested skills' section in the document, naming which skills the next agent should call the Skill tool for." That repo is worth reading whether or not you keep agents running. No code from it is reused here; the credit is for the ideas.
+
+The disagreement is about one root choice, the lifetime, and the rest of the table follows from it. It exists because the two of us are aiming at different kinds of agent, not because either lifetime is wrong.
 
 ## License
 
