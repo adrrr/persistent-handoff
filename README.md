@@ -6,9 +6,9 @@ This is for agents that keep running: a personal assistant that has been up for 
 
 ## Disposable handoff, persistent handoff
 
-The usual handoff is deliberately throwaway. At a crossing (end of a coding session, or a fork where you hand a copy of the context to a second agent working in parallel) you write a markdown file somewhere temporary, and its job ends when the receiving session has read it. [Matt Pocock's `handoff` skill](https://github.com/mattpocock/skills/blob/main/skills/productivity/handoff/SKILL.md) says it plainly: "Save to the temporary directory of the user's OS - not the current workspace." For a coding session you will close today, that is the right call. Use it.
+The usual handoff is deliberately throwaway. At a crossing (a session ending, or a fork handing context to a parallel agent) you write a markdown file somewhere temporary, and its job ends when the receiving session has read it. [Matt Pocock's `handoff` skill](https://github.com/mattpocock/skills/blob/main/skills/productivity/handoff/SKILL.md) says it plainly: "Save to the temporary directory of the user's OS - not the current workspace." For a coding session you will close today, that is the right call. Use it.
 
-This repo makes the opposite bet on lifetime. The left column below describes the throwaway approach; the right column is what this repo does instead, and everything in it follows from that one choice.
+This repo makes the opposite bet on lifetime. In the table below, Disposable is the throwaway approach and Persistent is what this repo does instead; every row follows from that one choice.
 
 | | Disposable | Persistent |
 |---|---|---|
@@ -79,7 +79,7 @@ One limit worth knowing: Claude Code caps hook output at 10,000 characters and r
 5. Every update removes what is resolved. A handoff that only grows stops being read.
 6. Emptiness is legitimate. When nothing is left in flight, the file is deleted. There is no handoff written for the form of it.
 
-Point 6 is the first one people drop, and the rest leans on it, see the FAQ for why.
+Point 6 is the first one people drop, and the rest leans on it; the FAQ says why.
 
 ## What one looks like
 
@@ -94,7 +94,7 @@ which is not enough to call it fixed.
 
 ## Next action
 Read /var/log/restic-nightly.log after the Aug 24 run. Three consecutive clean runs
-closes this. Anything else means the mount was not the whole story.
+close this. Anything else means the mount was not the whole story.
 
 ## Open questions
 Whether the daily snapshots from before Aug 19 get pruned or kept for the year.
@@ -123,6 +123,10 @@ Compaction summarizes the transcript, and the model decides what survives. A han
 
 Because it is read at every single session start. A handoff that is always present, half stale, describing work that finished last week, teaches every new session to skim it. Deleting it keeps the file meaningful: if it is there, something is genuinely in flight.
 
+**Why not just keep this in CLAUDE.md or the agent's memory?**
+
+Different lifetimes. CLAUDE.md and memory hold what stays true: mechanisms, commands, preferences. The handoff holds what is in flight right now, and gets deleted when it lands. Put a stable fact in the handoff and it dies with the work; put the current blocker in memory and it outlives its own resolution.
+
 **My agent is a coding session I close at the end of the day. Do I want this?**
 
 Probably not. Persistence buys you nothing when the agent dies on purpose after one task, and the bookkeeping (edit in place, prune what is resolved, delete when empty) is real work. Use a disposable handoff instead.
@@ -137,7 +141,7 @@ That is fine for `~/.claude/handoffs`, which only you write to. It is worth a se
 
 The disposable handoff pattern comes from [Matt Pocock's skills repo](https://github.com/mattpocock/skills) (MIT), and so does the idea of naming the skills the next agent should load: "Include a 'suggested skills' section in the document, naming which skills the next agent should call the Skill tool for." That repo is worth reading whether or not you keep agents running. No code from it is reused here; the credit is for the ideas.
 
-The disagreement is about one root choice, the lifetime, and the rest of the table follows from it. We aim at different kinds of agent, that is the whole disagreement. (His repo also carries an in-progress `claude-handoff` skill that turns a handoff into a background agent's prompt without saving it anywhere, a third lifetime, shorter still.)
+The disagreement is about one root choice, the lifetime, and the rest of the table follows from it. We aim at different kinds of agent. (His repo also carries an in-progress `claude-handoff` skill that turns a handoff into a background agent's prompt without saving it anywhere: a third lifetime, shorter still.)
 
 ## Tests
 
