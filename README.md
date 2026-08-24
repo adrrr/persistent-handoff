@@ -33,6 +33,35 @@ flowchart LR
 
 The loop runs until the work is done. Then the file is gone.
 
+## Install as a plugin (one command)
+
+The repo is its own plugin marketplace. One command adds it and installs the plugin, and the `SessionStart` hook is wired for you: there is no `settings.json` to edit.
+
+```bash
+claude plugin marketplace add adrrr/persistent-handoff && claude plugin install persistent-handoff@persistent-handoff
+```
+
+Inside a running session, the two slash commands do the same thing:
+
+```
+/plugin marketplace add adrrr/persistent-handoff
+/plugin install persistent-handoff@persistent-handoff
+```
+
+Start a new session and both the skill and the hook are live. Everything below still applies: the handoff path is derived from the working directory, `PERSISTENT_HANDOFF_FILE` still pins it, and the 10,000 character cap is unchanged. Remove it with `claude plugin uninstall persistent-handoff@persistent-handoff`.
+
+Coming from the manual install below? Remove the `SessionStart` entry from your `settings.json` and delete `~/.claude/skills/persistent-handoff/`. The plugin's hook and the hand-wired one are separate handlers, so keeping both injects the handoff twice at every session start.
+
+Either way you install it, the hook is plain portable bash: no BSD-only flags, and `jq` is optional with a plain-text fallback when it is missing. That covers macOS and Linux.
+
+### Windows
+
+WSL is the recommended path. Claude Code inside WSL is a Linux environment, so everything above applies unchanged.
+
+On native Windows, Claude Code runs a `command` hook through Git Bash when [Git for Windows](https://git-scm.com/downloads/win) is installed, and through PowerShell when it is not. Install Git for Windows first: without it the hook lands in PowerShell, which will not run a bash script. The hook is plain bash and should work under Git Bash, but it is untested there. If you try it, open an issue either way.
+
+The Quick start below installs the same skill and the same hook by hand, for anyone who would rather not use plugins.
+
 ## Quick start
 
 Copy the skill and the hook, then wire the hook into your settings.
@@ -158,6 +187,8 @@ The disagreement is about one root choice, the lifetime, and the rest of the tab
 ## Tests
 
 `bash tests/hook.sh`, 18 cases covering the hook's failure modes: path-slug collisions inside and outside `$HOME`, a `$HOME` containing glob metacharacters, a `jq` that exists but fails, a directory where the file should be, unreadable handoffs surfaced to the session instead of swallowed, and the 10,000-character context cap.
+
+`bash tests/manifests.sh`, 10 cases pinning the plugin manifests: valid JSON, the plugin root variable in the hook command, the script's exec bit, no matcher on `SessionStart`, the two names the install id is built from, and the skill's location.
 
 ## License
 
