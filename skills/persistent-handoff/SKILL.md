@@ -1,6 +1,6 @@
 ---
 name: persistent-handoff
-description: Use when an agent's work must survive the death of its context, or when a fresh session must learn where the work stands before acting: after a restart, recycle, crash or reboot of a long-running agent (personal assistant, fleet session, cron daemon), when a compact or auto-compact is near, at any milestone of multi-session work (a decision made, a PR opened or merged, an investigation concluded, a blocker hit, a question left waiting on a human), or when the user says "write a handoff", "note where you are", "prepare a restart".
+description: 'Use when an agent''s work must survive the death of its context, or when a fresh session must learn where the work stands before acting: after a restart, recycle, crash or reboot of a long-running agent (personal assistant, fleet session, cron daemon), when a compact or auto-compact is near, at any milestone of multi-session work (a decision made, a PR opened or merged, an investigation concluded, a blocker hit, a question left waiting on a human), or when the user says "write a handoff", "note where you are", "prepare a restart".'
 ---
 
 # Persistent handoff
