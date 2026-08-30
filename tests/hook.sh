@@ -393,6 +393,81 @@ out=$(printf '' | "$HOOK" --path --nonsense 2>&1); rc=$?
 [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qi 'usage' \
   && ok "32 --path with an extra argument is refused" || ko "32 (rc=$rc out=<$out>)"
 
+# 33. The three sources that hand the session a context of its own get the
+# precedence preamble instead of the fresh-start one. Without it the agent holds
+# two states after a compact, its summary and this file, with no rule saying
+# which wins for what.
+src_ok=1
+for src in compact resume fork; do
+  p=$(printf '{"session_id":"abc","cwd":"%s","hook_event_name":"SessionStart","source":"%s"}' "$HOME_DIR/proj-alpha" "$src")
+  c=$(printf '%s' "$p" | HOME="$HOME_DIR" "$HOOK" | jq -r '.hookSpecificOutput.additionalContext')
+  printf '%s' "$c" | grep -q "read back after a $src" || src_ok=0
+  # The direction of the rule, spelled out. Without this assertion the preamble
+  # can be inverted, "this file is newer than your context", and the suite stays
+  # green while telling the agent to throw away the work it just did.
+  printf '%s' "$c" | grep -q 'Your context above is newer than this file' || src_ok=0
+  printf '%s' "$c" | grep -q 'the file is the reference for everything else' || src_ok=0
+  printf '%s' "$c" | grep -q 'If they disagree, update the file' || src_ok=0
+  # The instructions the other preamble carries. A compacted session is exactly
+  # the one that no longer has them, so this branch has to repeat them.
+  printf '%s' "$c" | grep -q 'not a conversation summary' || src_ok=0
+  printf '%s' "$c" | grep -q 'Start from "Next action"' || src_ok=0
+  printf '%s' "$c" | grep -q 'delete it when nothing is left in flight' || src_ok=0
+  printf '%s' "$c" | grep -q 'state the previous session left behind' && src_ok=0
+  printf '%s' "$c" | grep -q 'make migrate-next' || src_ok=0
+  printf '%s' "$c" | grep -q "$ALPHA" || src_ok=0
+done
+[ "$src_ok" -eq 1 ] \
+  && ok "33 compact, resume and fork get the precedence preamble" || ko "33 (one of compact/resume/fork)"
+
+# 34. startup and clear are the starts with nothing behind them. They keep the
+# original preamble, which claims no precedence because there is nothing to
+# take precedence over.
+fresh_ok=1
+for src in startup clear; do
+  p=$(printf '{"session_id":"abc","cwd":"%s","hook_event_name":"SessionStart","source":"%s"}' "$HOME_DIR/proj-alpha" "$src")
+  c=$(printf '%s' "$p" | HOME="$HOME_DIR" "$HOOK" | jq -r '.hookSpecificOutput.additionalContext')
+  printf '%s' "$c" | grep -q 'state the previous session left behind' || fresh_ok=0
+  printf '%s' "$c" | grep -q 'read back after a' && fresh_ok=0
+done
+[ "$fresh_ok" -eq 1 ] && ok "34 startup and clear keep the fresh-start preamble" || ko "34"
+
+# 35. A payload with no source at all, and one with a source this hook has never
+# heard of. Both take the fresh-start preamble: claiming a precedence on a start
+# whose shape is unknown is the one thing worse than claiming none.
+no_src=$(printf '{"session_id":"abc","cwd":"%s","hook_event_name":"SessionStart"}' "$HOME_DIR/proj-alpha" \
+  | HOME="$HOME_DIR" "$HOOK" | jq -r '.hookSpecificOutput.additionalContext')
+odd_src=$(printf '{"session_id":"abc","cwd":"%s","hook_event_name":"SessionStart","source":"teleport"}' "$HOME_DIR/proj-alpha" \
+  | HOME="$HOME_DIR" "$HOOK" | jq -r '.hookSpecificOutput.additionalContext')
+if printf '%s' "$no_src" | grep -q 'state the previous session left behind' \
+   && ! printf '%s' "$no_src" | grep -q 'read back after a' \
+   && printf '%s' "$odd_src" | grep -q 'state the previous session left behind' \
+   && ! printf '%s' "$odd_src" | grep -q 'read back after a'; then
+  ok "35 absent or unknown source: fresh-start preamble"
+else
+  ko "35"
+fi
+
+# 36. No jq, so the source cannot be read. Same fallback as the cwd on that
+# branch: the hook stops guessing and takes the preamble that asserts nothing.
+# The handoff itself must still come out, on the plain-text path.
+if [ -z "$NO_JQ" ]; then
+  sk "36 (could not build a PATH without jq on this machine)"
+else
+  # The path is pinned for the same reason case 6 pins it: with no jq the hook
+  # cannot read cwd out of the payload either, and falls back to $PWD. This case
+  # is about the preamble, not about the derived name.
+  out=$(printf '{"session_id":"abc","cwd":"%s","hook_event_name":"SessionStart","source":"compact"}' "$HOME_DIR/proj-alpha" \
+    | env PATH="$NO_JQ" HOME="$HOME_DIR" PERSISTENT_HANDOFF_FILE="$TMP/pinned.md" "$HOOK")
+  if printf '%s' "$out" | grep -q 'state the previous session left behind' \
+     && ! printf '%s' "$out" | grep -q 'read back after a' \
+     && printf '%s' "$out" | grep -q '04:12 backup'; then
+    ok "36 no jq: source unreadable, fresh-start preamble, handoff still emitted"
+  else
+    ko "36"; printf '%s\n' "$out"
+  fi
+fi
+
 echo "---"
 [ "$skipped" -eq 0 ] || echo "$skipped case(s) skipped: they asserted nothing here"
 [ "$fail" -eq 0 ] && echo "ALL TESTS PASS" || echo "SOME TESTS FAILED"

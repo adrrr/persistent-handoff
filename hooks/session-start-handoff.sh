@@ -131,6 +131,21 @@ if [ -n "$want_path" ]; then
   exit 0
 fi
 
+# Which preamble to use. Claude Code names the start in the payload: startup,
+# clear, compact, resume and fork. The first two hand the session nothing but
+# this file. The last three hand it a context of its own, newer than the file
+# for whatever that session already did, and the preamble has to say so or the
+# session holds two states with no rule for which wins.
+#
+# Read below the --path exit, which has no payload to read and would spawn a jq
+# for nothing. Same fallback as the cwd above when there is no jq at all: the
+# source stays empty and the fresh-start preamble is used. It claims no
+# precedence, so it is the safe one to be wrong with.
+start_source=""
+if command -v jq >/dev/null 2>&1; then
+  start_source=$(printf '%s' "$payload" | jq -r '.source // empty' 2>/dev/null)
+fi
+
 # Nothing in flight: print nothing and exit clean. Silence is the normal case,
 # and it is what makes the file's presence meaningful. -e is false for a dangling
 # symlink, which is a broken handoff rather than an absent one, so -L catches it
@@ -167,8 +182,20 @@ body=$(cat "$handoff_file" 2>/dev/null) || body=""
 # everywhere else.
 case $body in *[![:space:]]*) ;; *) exit 0 ;; esac
 
-emit "Persistent handoff, read from $handoff_file. This is the state the previous session left behind, not a conversation summary. Start from \"Next action\". Update the file at the next milestone, remove from it whatever you resolve, and delete it when nothing is left in flight.
+# An unknown source takes the fresh-start preamble too. Asserting a precedence
+# over a context whose shape this hook does not know is worse than asserting
+# none, and a sixth source added upstream lands here first.
+case $start_source in
+  compact|resume|fork)
+    emit "Persistent handoff, read back after a $start_source, from $handoff_file. Your context above is newer than this file for what you did in this session; the file is the reference for everything else. If they disagree, update the file. The file is state, not a conversation summary. Start from \"Next action\". Update the file at the next milestone, remove from it whatever you resolve, and delete it when nothing is left in flight.
 
 $body"
+    ;;
+  *)
+    emit "Persistent handoff, read from $handoff_file. This is the state the previous session left behind, not a conversation summary. Start from \"Next action\". Update the file at the next milestone, remove from it whatever you resolve, and delete it when nothing is left in flight.
+
+$body"
+    ;;
+esac
 
 exit 0

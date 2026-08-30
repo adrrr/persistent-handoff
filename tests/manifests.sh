@@ -49,10 +49,14 @@ esac
 script=$ROOT/hooks/session-start-handoff.sh
 [ -x "$script" ] && ok "4 hook script exists and is executable" || ko "4 ($script)"
 
-# 5. No matcher on SessionStart: the hook must fire on every kind of start,
-# compact included. A matcher added by accident would quietly narrow that.
-jq -e '.hooks.SessionStart[0] | has("matcher") | not' "$HOOKS" >/dev/null \
-  && ok "5 SessionStart has no matcher" || ko "5 matcher present"
+# 5. One SessionStart entry, and no matcher on it. The hook must run on all five
+# sources: the handoff has to be present after a compaction, where the summary
+# decides on its own what survives. The preamble carries the precedence rule
+# instead, which is what keeps that from being a double state. A matcher added
+# here would take the guarantee away silently, and a second entry would inject
+# the handoff twice.
+jq -e '.hooks.SessionStart | length == 1 and all(has("matcher") | not)' "$HOOKS" >/dev/null \
+  && ok "5 one SessionStart entry, no matcher" || ko "5 (entries=$(jq -c '.hooks.SessionStart' "$HOOKS"))"
 
 # 6. The marketplace entry points at the repository root, which is where
 # plugin.json lives. Any other source path resolves to a directory with no
@@ -90,6 +94,22 @@ mv=$(jq -r '.plugins[0].version // empty' "$MARKET")
 cv=$(grep -m1 -o '^## \[[0-9][0-9.]*\]' "$ROOT/CHANGELOG.md" 2>/dev/null | tr -d '#[] ')
 [ -n "$cv" ] && [ "$cv" = "$pv" ] \
   && ok "11 changelog's top entry is $pv" || ko "11 (changelog=<$cv> plugin=<$pv>)"
+
+# 12. The demo wires the same hook through settings.json. Second copy of the
+# same shape, and it drifts the moment one of the two is edited alone.
+DEMO=$ROOT/demo/homelab/.claude/settings.json
+jq -e '.hooks.SessionStart | length == 1 and all(has("matcher") | not)' "$DEMO" >/dev/null \
+  && ok "12 demo settings: one entry, no matcher" || ko "12 (demo=$(jq -c '.hooks.SessionStart' "$DEMO"))"
+
+# 13. The README's hand-install snippet is the third copy, and the one users
+# actually paste. Pull the JSON block that carries SessionStart back out of the
+# prose and hold it to the same shape.
+snippet=$(awk '/^```json$/{b=1;s="";next} b&&/^```$/{if(s~/SessionStart/){print s;exit} b=0;s="";next} b{s=s $0 "\n"}' "$ROOT/README.md")
+if printf '%s' "$snippet" | jq -e '.hooks.SessionStart | length == 1 and all(has("matcher") | not)' >/dev/null 2>&1; then
+  ok "13 README snippet: one entry, no matcher"
+else
+  ko "13 (readme=$(printf '%s' "$snippet" | jq -c '.hooks.SessionStart' 2>&1))"
+fi
 
 echo "---"
 [ "$fail" -eq 0 ] && echo "ALL TESTS PASS" || echo "SOME TESTS FAILED"
