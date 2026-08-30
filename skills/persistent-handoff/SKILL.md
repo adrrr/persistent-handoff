@@ -92,7 +92,7 @@ The shape, filled in with whatever the work actually is:
 
 Every update deletes what is resolved or stale. A file that only grows is a journal, and nobody reads a journal at boot.
 
-Rewrite it at the same path, the whole file every time. With a shell, write the new content to `<handoff>.tmp` in the same directory, then `mv` it over the handoff. A session starting mid-write then never reads a truncated file, and nothing in a truncated handoff says it is one. Without a shell, the write tool with the full content is fine. Never patch it in place with an edit tool, that is how stale lines survive.
+Rewrite it at the same path, the whole file every time. With a shell, write the new content to `<handoff>.tmp` in the same directory, then `mv` it over the handoff. A session starting mid-write then never reads a truncated file, and nothing in a truncated handoff says it is one. Without a shell, the write tool with the full content is fine. Never patch it with an edit tool, that is how stale lines survive.
 
 Emptiness is legitimate. If an update empties the handoff, delete the file. An empty handoff still costs context at every session start and tells that session nothing; its absence already says it: nothing is in flight.
 
