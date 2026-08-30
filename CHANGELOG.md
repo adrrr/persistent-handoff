@@ -23,6 +23,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   down to what ships, and the three things it cannot do for you: accept the
   folder's trust prompt, record outside tmux, and restore the demo handoff
   afterwards.
+- The skill's rewrite rule now says what to do without a shell: the write tool
+  with the full content is fine, and the temporary file moved over the handoff
+  stays the way to go when a shell exists. The GIF's session has no Bash, and the
+  old wording called the tool it uses the wrong one.
 
 ## [0.2.3] - 2026-08-30
 
