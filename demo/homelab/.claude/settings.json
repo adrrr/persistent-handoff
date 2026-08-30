@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "PERSISTENT_HANDOFF_FILE=.claude/handoff.md .claude/hooks/session-start-handoff.sh",
+            "command": "PERSISTENT_HANDOFF_FILE=\"${CLAUDE_PROJECT_DIR}\"/.claude/handoff.md \"${CLAUDE_PROJECT_DIR}\"/.claude/hooks/session-start-handoff.sh",
             "timeout": 10
           }
         ]

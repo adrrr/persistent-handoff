@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO=/repo
-LOG=/var/log/restic-nightly.log
+LOG=$(cd "$(dirname "$0")/.." && pwd)/logs/restic-nightly.log
 
 mount | grep -q nas || { echo "$(date -Is) nas share not mounted" >>"$LOG"; exit 1; }
 
