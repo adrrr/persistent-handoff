@@ -92,7 +92,7 @@ That is the demo's handoff, and `./demo/setup.sh` puts it in a project you can o
 
 ## Where the handoff lives
 
-By default the hook names the file after the working directory, relative to your home directory, with the separators turned into dashes and a short digest of the full path on the end. An agent running in `/home/alice/work/acme/api` reads `~/.claude/handoffs/work-acme-api-32817b.md`. Run `session-start-handoff.sh --path` in a directory to read that name rather than work it out.
+An agent running in `/home/alice/work/acme/api` reads `~/.claude/handoffs/work-acme-api-32817b.md` by default. That is the working directory relative to your home, separators turned into dashes, and a short digest of the full path on the end. Run `session-start-handoff.sh --path` in a directory to read that name rather than work it out.
 
 An agent that is not tied to one directory pins `PERSISTENT_HANDOFF_FILE` to an absolute path instead. There is one expansion trap in doing that, and the digest is a coincidence guard rather than a uniqueness proof. [`docs/REFERENCE.md`](docs/REFERENCE.md) has both, plus what happens when several sessions share one path and what Claude Code's 10,000 character cap on hook output does to a handoff grown into a journal.
 
