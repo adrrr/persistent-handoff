@@ -111,6 +111,30 @@ else
   ko "13 (readme=$(printf '%s' "$snippet" | jq -c '.hooks.SessionStart' 2>&1))"
 fi
 
+# 14. The one path in the repo that nothing else resolves. SKILL.md tells the
+# agent to run the hook through ${CLAUDE_SKILL_DIR}, which Claude Code expands
+# when it loads the file, so a wrong suffix breaks on the user's machine and
+# never here. Pull the suffix back out of the prose and resolve it against the
+# skill's own directory, which is what ${CLAUDE_SKILL_DIR} stands for.
+# It has to be the hook itself, and it has to ask for --path: [ -x ] alone is
+# true of a directory, and without --path the agent's call reads stdin until
+# something kills it, which is what cases 28 and 32 defend at the CLI level.
+SKILL=$ROOT/skills/persistent-handoff/SKILL.md
+ref=$(grep -o '\${CLAUDE_SKILL_DIR}/[^"'\''`[:space:]]*' "$SKILL" | head -1)
+suffix=${ref#'${CLAUDE_SKILL_DIR}/'}
+target=$ROOT/skills/persistent-handoff/$suffix
+# cd normalises the ../.. without needing realpath, which macOS does not ship.
+# `-ef` would be one line and is not dependable under Git Bash.
+resolve() { [ -n "${1:-}" ] && [ -f "$1" ] && ( cd "$(dirname "$1")" && printf '%s/%s' "$(pwd -P)" "$(basename "$1")" ); }
+got=$(resolve "$target")
+want=$(resolve "$script")
+if [ -n "$got" ] && [ "$got" = "$want" ] && [ -x "$target" ] \
+   && grep -qF "$ref\" --path" "$SKILL"; then
+  ok "14 SKILL.md runs the hook itself, with --path ($suffix)"
+else
+  ko "14 (suffix=<$suffix> resolved=<$got> expected=<$want>)"
+fi
+
 echo "---"
 [ "$fail" -eq 0 ] && echo "ALL TESTS PASS" || echo "SOME TESTS FAILED"
 exit "$fail"

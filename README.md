@@ -21,7 +21,9 @@ Inside a running session, `/plugin marketplace add adrrr/persistent-handoff` the
 
 Upgrading from 0.1.0? The derived filename gained a digest, so the hook will not find your existing handoff. Run `--path` in the directory and rename the file to what it prints, or pin `PERSISTENT_HANDOFF_FILE` to the old path. Nothing warns you otherwise: the hook reads the new name, finds nothing, and stays silent. Coming from the hand install? Remove the `SessionStart` entry from your `settings.json` and delete `~/.claude/skills/persistent-handoff/`, or the two handlers inject the handoff twice.
 
-The hook is plain portable bash with no BSD-only flags, and `jq` is optional. Both install paths need that much of a shell.
+Requires Claude Code 2.1.69 or newer, developed and tested on 2.1.251. `${CLAUDE_SKILL_DIR}`, which the skill uses to name the hook, landed in 2.1.69. Before 2.1.214 a fork reports `resume`, which takes the same preamble, so nothing else changes.
+
+The hook needs `bash` on `PATH`. It uses no BSD-only flags and `jq` is optional, but the shebang is `bash`, not `sh`, so a container image without it will not run the hook at all.
 
 ### Windows
 
@@ -108,7 +110,7 @@ Write an absolute path there. `${CLAUDE_PROJECT_DIR}` is expanded in a hook's `c
 
 Nothing happens until a handoff exists. The hook stays silent when the file is missing or holds nothing but whitespace, so installing it costs nothing on sessions with no state to carry. Three sessions in one directory are one agent by this design, and the last writer wins. Writing to a temporary file and moving it over prevents a torn read, not a lost update, so pin `PERSISTENT_HANDOFF_FILE` per session if they hold genuinely separate work.
 
-Claude Code caps a hook's output at 10,000 characters and injects a truncated preview plus a path past that. This is Claude Code's limit rather than this repo's, so it can move in a future release with nothing to warn you. The preamble takes 260 characters plus the path on a fresh start, 415 plus the path after a compact, so a handoff kept to 300 to 500 tokens sits far below the limit and one grown into a journal arrives as a preview.
+Claude Code caps a hook's output at 10,000 characters and injects a truncated preview plus a path past that. This is Claude Code's limit rather than this repo's, so it can move in a future release with nothing to warn you. The preamble takes 259 characters plus the path on a fresh start, and 404 to 407 after a compact, a resume or a fork. A handoff kept to 300 to 500 tokens sits far below the limit; one grown into a journal arrives as a preview.
 
 ## FAQ
 
@@ -119,6 +121,8 @@ A compaction summary lives in the session that holds it and dies with it. The fi
 **What happens after a compact or a resume?**
 
 The hook fires there too, about 500 tokens, so the handoff is present whatever the compaction summary happened to keep. The preamble says which side wins: your context is newer for what you did in this session, the file is the reference for everything else. If the two disagree, update the file.
+
+Repeated resumes do not stack copies. Claude Code drops a `SessionStart` `additionalContext` whose exact text is already in the transcript it reloaded. The two preambles are two different strings, so a session that started fresh and was then resumed carries both, and every resume after that is deduplicated for as long as the file does not change. That is read out of the 2.1.251 binary and documented nowhere, so take it as an observation rather than a contract.
 
 **Why delete the file when it is empty?**
 
@@ -132,9 +136,13 @@ Different lifetimes. CLAUDE.md and memory hold what stays true: mechanisms, comm
 
 Probably not. Persistence buys you nothing when the agent dies on purpose after one task, and the bookkeeping is real work. Use a disposable handoff instead.
 
+**I deleted the project. Is its handoff still there?**
+
+Yes. Nothing prunes `~/.claude/handoffs/`, so a handoff named after a directory outlives that directory. The hook puts no date in the preamble, so date the content the way the example above does and a stale file says so when you open it.
+
 **What does it cost on every session start?**
 
-Four short-lived processes on the derived path, three `jq` and one `cksum`, which measures between 10 and 15 ms depending on the machine. Zero tokens when no handoff exists, which is the normal case. With one, roughly 400 to 600 tokens.
+On the derived path, seven short-lived processes when a handoff is there: two `cat`, three `jq`, one `cksum`, one `tr`. Five when there is none. Between 10 and 25 ms depending on the machine and what else it is doing. Zero tokens when no handoff exists, which is the normal case. With one, roughly 400 to 600 tokens.
 
 ## Install by hand
 
@@ -147,7 +155,7 @@ cp -r "$src"/skills/persistent-handoff/. ~/.claude/skills/persistent-handoff/
 install -m 755 "$src"/hooks/session-start-handoff.sh ~/.claude/hooks/
 ```
 
-The `cp` copies the contents rather than the directory, so running the install twice updates the skill instead of nesting a copy inside it. Then add the hook to `~/.claude/settings.json`, or to a project `.claude/settings.json`:
+The `cp` copies the contents rather than the directory, so running the install twice updates the skill instead of nesting a copy inside it. Then add the hook to `~/.claude/settings.json`, or to a project `.claude/settings.json`. In a repo you share with other people, use `.claude/settings.local.json` instead: same shape, and it is the file meant to stay out of the commit.
 
 ```json
 {
@@ -183,11 +191,13 @@ Want an agent to record what it decided? This repo. Want a record of how it got 
 
 ## Tests
 
-`bash tests/hook.sh`, 36 cases covering the hook's failure modes and its two preambles: path-slug collisions inside and outside `$HOME`, a `$HOME` containing glob metacharacters, a `jq` that exists but fails, a directory where the file should be, a dangling symlink, unreadable handoffs surfaced to the session instead of swallowed, a 2 MB handoff still emitting valid JSON, the fallback taken when no `cksum` is available, and the preamble chosen for each `SessionStart` source, including an absent one and an unknown one.
+`bash tests/hook.sh`, 37 cases covering the hook's failure modes and its two preambles: path-slug collisions inside and outside `$HOME`, a `$HOME` containing glob metacharacters, a `jq` that exists but fails, a directory where the file should be, a dangling symlink, unreadable handoffs surfaced to the session instead of swallowed, a 2 MB handoff still emitting valid JSON, the fallback taken when no `cksum` is available, a `--path` that cannot create the directory it names, and the preamble chosen for each `SessionStart` source, including an absent one and an unknown one.
 
-`bash tests/manifests.sh`, 13 cases pinning the plugin manifests: valid JSON, the plugin root variable in the hook command, the script's exec bit, one matcher-less `SessionStart` entry in all three copies, the plugin, the demo and the README snippet, the two names the install id is built from, the skill's location, and the changelog agreeing with the shipped version.
+`bash tests/manifests.sh`, 14 cases pinning the plugin manifests: valid JSON, the plugin root variable in the hook command, the script's exec bit, one matcher-less `SessionStart` entry in all three copies, the plugin, the demo and the README snippet, the two names the install id is built from, the skill's location, the `${CLAUDE_SKILL_DIR}` path SKILL.md hands the agent, and the changelog agreeing with the shipped version.
 
-Both run on `ubuntu-latest`, `macos-latest` and `windows-latest` on every pull request, 49 assertions each, minus two on Windows where NTFS will not stage what they need: a `chmod 000` that actually denies a read, and a dangling symlink. A skipped case asserted nothing, so the suite prints how many it skipped alongside the pass. See [`.github/workflows/tests.yml`](.github/workflows/tests.yml).
+Both run on `ubuntu-latest`, `macos-latest` and `windows-latest`, on every pull request, on every push to `main`, and on demand, 51 assertions each, minus three on Windows where NTFS will not stage what they need: a `chmod 000` that actually denies a read, a `chmod 555` directory, and a dangling symlink. A skipped case asserted nothing, so the suite prints how many it skipped alongside the pass.
+
+The same workflow runs `./demo/setup.sh` and calls the hook it installs the way the demo's `settings.json` calls it, and runs `shellcheck` on the Linux leg. See [`.github/workflows/tests.yml`](.github/workflows/tests.yml).
 
 ## License
 

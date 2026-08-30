@@ -6,6 +6,10 @@ HOOK=$SCRIPT_DIR/../hooks/session-start-handoff.sh
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 HOME_DIR="$TMP/home"
+# The suite stages its own handoffs at derived paths, so a PERSISTENT_HANDOFF_FILE
+# inherited from the caller wins over every one of them. The README tells fleet
+# operators to export exactly that, and CONTRIBUTING tells them to run this file.
+unset PERSISTENT_HANDOFF_FILE
 mkdir -p "$HOME_DIR/.claude/handoffs" "$HOME_DIR/proj-alpha"
 fail=0
 skipped=0
@@ -318,29 +322,37 @@ p=$(cd "$HOME_DIR/proj-alpha" && payload_for "$HOME_DIR/acme/api" | HOME="$HOME_
 # be writable. The plugin install never runs the hand install's mkdir, so without
 # this the agent's first handoff fails with "No such file or directory" and the
 # hook it was supposed to feed goes on reporting nothing in flight.
+# A mkdir that worked stays silent, which is the half case 37 does not cover:
+# warn on every call and 37 is still green, while the agent reads the warning on
+# every first write.
 FRESH=$TMP/fresh-home
 mkdir -p "$FRESH"
-p=$(cd "$TMP" && HOME="$FRESH" "$HOOK" --path)
-if printf 'first handoff\n' > "$p" 2>/dev/null && [ -f "$p" ]; then
+p=$(cd "$TMP" && HOME="$FRESH" "$HOOK" --path 2>"$TMP/fresh.err")
+err=$(cat "$TMP/fresh.err")
+if printf 'first handoff\n' > "$p" 2>/dev/null && [ -f "$p" ] && [ -z "$err" ]; then
   ok "26 --path creates the handoff directory, so the first write lands"
 else
-  ko "26 (could not write to <$p>)"
+  ko "26 (path=<$p> stderr=<$err>)"
 fi
 
 # 27. REGRESSION: a cksum that prints something unexpected must not crash the
 # arithmetic. A non-numeric first field tripped `set -u`, and a leading zero was
 # read as octal, both leaking to stderr and silently reverting the name to the
 # lossy 0.1.0 slug.
+# The verdict is a flag of its own, like cases 33 and 34. Reading the global
+# `fail` here meant one failure anywhere above swallowed this case whole: no
+# PASS, no FAIL, and a run that quietly printed 36 lines instead of 37.
 mkdir -p "$TMP/oddbin"
+t27=1
 for bad in 'garbage 12' '0891 12' '' '-5 12'; do
   printf '#!/bin/sh\necho "%s"\n' "$bad" > "$TMP/oddbin/cksum"; chmod +x "$TMP/oddbin/cksum"
   err=$(cd "$TMP" && env PATH="$TMP/oddbin:$PATH" HOME="$HOME_DIR" "$HOOK" --path 2>&1 >/dev/null)
   case $err in
     *"unbound variable"*|*"value too great"*|*"syntax error"*)
-      ko "27 cksum printing <$bad> leaks a shell error: $err"; break ;;
+      ko "27 cksum printing <$bad> leaks a shell error: $err"; t27=0; break ;;
   esac
 done
-[ "$fail" -eq 0 ] && ok "27 unexpected cksum output: no shell error on stderr"
+[ "$t27" -eq 1 ] && ok "27 unexpected cksum output: no shell error on stderr"
 rm -f "$TMP/oddbin/cksum"
 
 # 28. An argument that is not --path must not hang waiting on a payload. The hook
@@ -467,6 +479,26 @@ else
     ko "36"; printf '%s\n' "$out"
   fi
 fi
+
+# 37. --path creates the directory it names, and has to say so when it cannot.
+# The mkdir was `|| true`, so a read-only ~/.claude produced a confident path
+# inside a directory that does not exist: exit 0, stderr empty, and the agent's
+# first write then died on "No such file or directory" with nothing pointing at
+# the cause. The exit code stays 0 on purpose, a SessionStart hook that fails
+# the session is worse than one that warns.
+RO=$TMP/ro-home
+mkdir -p "$RO/.claude"
+chmod 555 "$RO/.claude" 2>/dev/null
+p=$(cd "$TMP" && HOME="$RO" "$HOOK" --path 2>"$TMP/ro.err"); rc=$?
+err=$(cat "$TMP/ro.err")
+if [ -d "$RO/.claude/handoffs" ]; then
+  sk "37 (a 555 directory is still writable here: root, or no POSIX file modes)"
+elif [ "$rc" -eq 0 ] && [ -n "$p" ] && printf '%s' "$err" | grep -q 'could not create'; then
+  ok "37 --path reports the directory it could not create"
+else
+  ko "37 (rc=$rc path=<$p> stderr=<$err>)"
+fi
+chmod 755 "$RO/.claude" 2>/dev/null
 
 echo "---"
 [ "$skipped" -eq 0 ] || echo "$skipped case(s) skipped: they asserted nothing here"

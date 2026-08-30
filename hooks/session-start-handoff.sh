@@ -124,8 +124,14 @@ if [ -n "$want_path" ]; then
   # is left with nowhere to put its handoff. Only when there is a directory part
   # to create: "${handoff_file%/*}" is the whole string for a bare filename, so
   # an unguarded mkdir would create a directory where the file belongs.
+  # A failed mkdir used to be swallowed, which printed a confident path inside a
+  # directory that does not exist: the agent's first write then died on "No such
+  # file or directory" with nothing naming the cause. Exit stays 0, a hook that
+  # fails the session is worse than one that warns.
   case $handoff_file in
-    */*) mkdir -p "${handoff_file%/*}" 2>/dev/null || true ;;
+    */*) mkdir -p "${handoff_file%/*}" 2>/dev/null ||
+      printf '%s: could not create %s, the first write to this handoff will fail\n' \
+        "${0##*/}" "${handoff_file%/*}" >&2 ;;
   esac
   printf '%s\n' "$handoff_file"
   exit 0
