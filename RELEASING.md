@@ -2,7 +2,7 @@
 
 `main` is the release channel. The marketplace clones the default branch, so whatever is merged is what the next person installs. There is no staging branch and no pre-release step.
 
-1. Bump `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` to the same version, add the matching `## [X.Y.Z]` section to `CHANGELOG.md`, and add its compare link at the bottom of that file. Case 9 of `tests/manifests.sh` ties the two manifests to each other, case 11 ties them to the changelog's top entry.
+1. Bump `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` to the same version, add the matching `## [X.Y.Z]` section to `CHANGELOG.md`, add its compare link at the bottom of that file, and repoint `[Unreleased]` there at the new tag. Case 9 of `tests/manifests.sh` ties the two manifests to each other, case 11 ties them to the changelog's top entry.
 2. `bash tests/hook.sh` and `bash tests/manifests.sh`, both green.
 3. `claude plugin validate .`
 4. Open a PR. CI has to be green on `ubuntu-latest`, `macos-latest` and `windows-latest`.
