@@ -83,8 +83,8 @@ mv=$(jq -r '.plugins[0].version // empty' "$MARKET")
 [ -n "$pv" ] && [ "$pv" = "$mv" ] && ok "9 versions agree ($pv)" || ko "9 (plugin=$pv marketplace=$mv)"
 
 # 10. The skill stays where both install paths expect it. The plugin loader
-# auto-discovers skills/<name>/SKILL.md at the plugin root, and the manual
-# "Install by hand" copies the same directory. Moving it would break both at once.
+# auto-discovers skills/<name>/SKILL.md at the plugin root, and the hand install
+# in docs/INSTALL.md copies the same directory. Moving it breaks both at once.
 [ -f "$ROOT/skills/persistent-handoff/SKILL.md" ] \
   && ok "10 skill at skills/persistent-handoff/SKILL.md" || ko "10 skill moved"
 
@@ -101,14 +101,15 @@ DEMO=$ROOT/demo/homelab/.claude/settings.json
 jq -e '.hooks.SessionStart | length == 1 and all(has("matcher") | not)' "$DEMO" >/dev/null \
   && ok "12 demo settings: one entry, no matcher" || ko "12 (demo=$(jq -c '.hooks.SessionStart' "$DEMO"))"
 
-# 13. The README's hand-install snippet is the third copy, and the one users
-# actually paste. Pull the JSON block that carries SessionStart back out of the
-# prose and hold it to the same shape.
-snippet=$(awk '/^```json$/{b=1;s="";next} b&&/^```$/{if(s~/SessionStart/){print s;exit} b=0;s="";next} b{s=s $0 "\n"}' "$ROOT/README.md")
+# 13. The hand-install snippet is the third copy, and the one users actually
+# paste. It moved out of the README into docs/INSTALL.md in 0.2.3; the block is
+# pulled back out of the prose there and held to the same shape.
+DOC=$ROOT/docs/INSTALL.md
+snippet=$(awk '/^```json$/{b=1;s="";next} b&&/^```$/{if(s~/SessionStart/){print s;exit} b=0;s="";next} b{s=s $0 "\n"}' "$DOC")
 if printf '%s' "$snippet" | jq -e '.hooks.SessionStart | length == 1 and all(has("matcher") | not)' >/dev/null 2>&1; then
-  ok "13 README snippet: one entry, no matcher"
+  ok "13 docs/INSTALL.md snippet: one entry, no matcher"
 else
-  ko "13 (readme=$(printf '%s' "$snippet" | jq -c '.hooks.SessionStart' 2>&1))"
+  ko "13 (install doc=$(printf '%s' "$snippet" | jq -c '.hooks.SessionStart' 2>&1))"
 fi
 
 # 14. The one path in the repo that nothing else resolves. SKILL.md tells the

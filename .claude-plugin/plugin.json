@@ -1,7 +1,7 @@
 {
   "name": "persistent-handoff",
   "description": "A handoff file that outlives the session that wrote it: one file per agent, updated at milestones, read back automatically at every session start.",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "author": {
     "name": "adrrr",
     "url": "https://github.com/adrrr"
