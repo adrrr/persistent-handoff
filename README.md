@@ -9,9 +9,9 @@ Your agent starts every session knowing where the work stands. It keeps one hand
 
 *Two acts, and the cut between them is a restart. Act one, the agent rewrites its handoff. Act two, a new session answers `where were we?` from that file.*
 
-I run eight Claude Code sessions in tmux, and a cron restarts the idle ones every night. They used to wake up with no idea what they had spent the previous day on. Context dies often, and rarely with a warning. This is for the agents that keep running: an assistant that has been up for six months, a daemon that wakes on a cron, a fleet like mine.
+I run eight Claude Code sessions in tmux, and a cron restarts the idle ones every night. They used to wake up with no idea what they had spent the previous day on. Context dies often, and rarely with a warning.
 
-This was built for agents that run for weeks and get their messages from wherever you are, through `claude --channels` (Telegram, Discord, iMessage…) or Remote Control from the Claude app. On your side, a restart, a crash or a compact on the machine goes unnoticed. You send the next message and the agent picks up where it left off. Without the handoff, that message is you explaining what it was doing. Nothing in the plugin depends on tmux or channels, it just started there.
+It is for the agents that keep running: an assistant that has been up for six months, a daemon that wakes on a cron, a fleet like mine. They get their messages from wherever you are, through `claude --channels` (Telegram, Discord, iMessage…) or Remote Control from the Claude app. On your side, a restart, a crash or a compact on the machine goes unnoticed. You send the next message and the agent picks up where it left off. Without the handoff, that message is you explaining what it was doing. Nothing in the plugin depends on tmux or channels, it just started there.
 
 [Install](#install) · [Try it](#try-it) · [Contract](#the-contract) · [FAQ](#faq) · [Related](#related)
 
@@ -23,11 +23,13 @@ The repo is its own plugin marketplace. One command adds it and installs the plu
 claude plugin marketplace add adrrr/persistent-handoff && claude plugin install persistent-handoff@persistent-handoff
 ```
 
-Inside a running session, `/plugin marketplace add adrrr/persistent-handoff` then `/plugin install persistent-handoff@persistent-handoff` do the same thing. Start a new session and both the skill and the hook are live. Remove it with `claude plugin uninstall persistent-handoff@persistent-handoff`, then `claude plugin marketplace remove persistent-handoff` to drop the marketplace entry. Would rather not use plugins, or already installed it by hand? [`docs/INSTALL.md`](docs/INSTALL.md). Upgrading from 0.1.0? The derived filename gained a digest, and the [0.2.0 changelog entry](CHANGELOG.md#upgrading-from-010) says what to rename.
-
 Requires Claude Code 2.1.69 or newer, developed and tested on 2.1.251. `${CLAUDE_SKILL_DIR}`, which the skill uses to name the hook, landed in 2.1.69. Before 2.1.214 a fork reports `resume`, which takes the same preamble, so nothing else changes.
 
 The hook needs `bash` on `PATH`. It uses no BSD-only flags and `jq` is optional, but the shebang is `bash`, not `sh`, so a container image without it will not run the hook at all. On Windows that means WSL, or [Git for Windows](https://git-scm.com/downloads/win) installed first: without it a `command` hook lands in PowerShell, which will not run a bash script either. [`docs/INSTALL.md`](docs/INSTALL.md#windows) has both cases.
+
+Inside a running session, `/plugin marketplace add adrrr/persistent-handoff` then `/plugin install persistent-handoff@persistent-handoff` do the same thing. Start a new session and both the skill and the hook are live. Remove it with `claude plugin uninstall persistent-handoff@persistent-handoff`, then `claude plugin marketplace remove persistent-handoff` to drop the marketplace entry. Would rather not use plugins, or already installed it by hand? [`docs/INSTALL.md`](docs/INSTALL.md). Upgrading from 0.1.0? The derived filename gained a digest, and the [0.2.0 changelog entry](CHANGELOG.md#upgrading-from-010) says what to rename.
+
+Nothing happens until a handoff exists. The hook stays silent when the file is missing or holds nothing but whitespace, so installing it costs nothing on sessions with no state to carry.
 
 ## Try it
 
@@ -39,11 +41,11 @@ git clone https://github.com/adrrr/persistent-handoff && cd persistent-handoff
 claude --model claude-sonnet-5 --setting-sources project,local --strict-mcp-config --tools Read,Glob,Grep,Skill,Write
 ```
 
+Claude Code will ask you to trust the folder, because the demo carries a project hook. The prompt preselects the option that exits, and it is right to be careful. The hook feeds the handoff straight into a fresh session as context, and the file tells that session what to do next: treat it as executable input, and read [`hooks/session-start-handoff.sh`](hooks/session-start-handoff.sh) first. That is fine in `~/.claude/handoffs`, which only you write to. A handoff committed to a repo means anyone who can push there can write into your agent's context, so keep that to repos whose writers you trust.
+
 Those are the flags the GIF was recorded with. They load only the demo's own settings and none of your MCP servers. `Write` is there because act 1 writes the handoff, and nothing scopes it to that one file, so keep the session to the demo project.
 
 Answer the handoff's open question the way the GIF does: `Keep the daily snapshots for the year, that's decided. I'm going to restart you in a minute.` The skill loads on its own and rewrites `.claude/handoff.md`, question gone. Claude Code treats anything under `.claude/` as sensitive, so a session set to ask will ask you first. The GIF ran in auto mode, which allowed the write and printed that it had. Then `/exit`, start `claude` again with the same flags, and ask `where were we?`. That answer comes out of the handoff the hook fed the session, not out of a file the agent opened. The one `Read` on screen in act 2 is the log the handoff points at. To run it again, `git checkout -- demo/homelab/.claude/handoff.md` puts the open question back.
-
-Claude Code will ask you to trust the folder, because the demo carries a project hook. The prompt preselects the option that exits, and it is right to be careful. The hook feeds the handoff straight into a fresh session as context, and the file tells that session what to do next: treat it as executable input, and read [`hooks/session-start-handoff.sh`](hooks/session-start-handoff.sh) first. That is fine in `~/.claude/handoffs`, which only you write to. A handoff committed to a repo means anyone who can push there can write into your agent's context, so keep that to repos whose writers you trust.
 
 ## The contract
 
@@ -93,8 +95,6 @@ That is the demo's handoff, and `./demo/setup.sh` puts it in a project you can o
 By default the hook names the file after the working directory, relative to your home directory, with the separators turned into dashes and a short digest of the full path on the end. An agent running in `/home/alice/work/acme/api` reads `~/.claude/handoffs/work-acme-api-32817b.md`. Run `session-start-handoff.sh --path` in a directory to read that name rather than work it out.
 
 An agent that is not tied to one directory pins `PERSISTENT_HANDOFF_FILE` to an absolute path instead. There is one expansion trap in doing that, and the digest is a coincidence guard rather than a uniqueness proof. [`docs/REFERENCE.md`](docs/REFERENCE.md) has both, plus what happens when several sessions share one path and what Claude Code's 10,000 character cap on hook output does to a handoff grown into a journal.
-
-Nothing happens until a handoff exists. The hook stays silent when the file is missing or holds nothing but whitespace, so installing it costs nothing on sessions with no state to carry.
 
 ## FAQ
 
