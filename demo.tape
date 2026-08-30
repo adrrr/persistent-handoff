@@ -3,7 +3,7 @@
 #   ./demo/setup.sh && vhs demo.tape
 #
 # demo/homelab is the project it records: a throwaway homelab repo with the hook
-# installed at project scope, the way the Quick start describes it. setup.sh puts
+# installed at project scope, the way the "Install by hand" section describes it. setup.sh puts
 # the hook and the skill in place, .claude/settings.json wires SessionStart with
 # the inline PERSISTENT_HANDOFF_FILE form, and .claude/handoff.md is the handoff.
 #

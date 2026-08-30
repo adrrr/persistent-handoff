@@ -13,4 +13,17 @@ mkdir -p "$project/.claude/hooks" "$project/.claude/skills/persistent-handoff"
 install -m 755 "$root/hooks/session-start-handoff.sh" "$project/.claude/hooks/"
 cp -R "$root/skills/persistent-handoff/." "$project/.claude/skills/persistent-handoff/"
 
-echo "demo/homelab is ready. cd demo/homelab && claude, then ask: where were we?"
+cat <<'EOF'
+demo/homelab is ready. Run it read-only, the way the GIF was recorded:
+
+  cd demo/homelab
+  claude --model claude-sonnet-5 --setting-sources project,local \
+         --strict-mcp-config --tools Read,Glob,Grep
+
+then ask: where were we?
+
+Claude Code will ask you to trust this folder, because it carries a project hook
+in .claude/settings.json, and the prompt preselects the option that exits. The
+hook is ../../hooks/session-start-handoff.sh: it reads one file and prints it.
+Read it before you accept, the same as any repo you clone.
+EOF

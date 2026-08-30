@@ -11,9 +11,12 @@ fail=0
 ok() { echo "PASS $1"; }
 ko() { echo "FAIL $1"; fail=1; }
 
+# Every assertion below reads JSON with jq, so no jq means this suite proves
+# nothing. Reporting that as success is worse than having no suite at all.
 if ! command -v jq >/dev/null 2>&1; then
-  echo "SKIP all (jq not on PATH)"
-  exit 0
+  echo "FAIL: jq is not on PATH, and every check in this file needs it."
+  echo "      Install jq (apt install jq, brew install jq, choco install jq) and re-run."
+  exit 1
 fi
 
 PLUGIN=$ROOT/.claude-plugin/plugin.json
@@ -77,9 +80,16 @@ mv=$(jq -r '.plugins[0].version // empty' "$MARKET")
 
 # 10. The skill stays where both install paths expect it. The plugin loader
 # auto-discovers skills/<name>/SKILL.md at the plugin root, and the manual
-# Quick start copies the same directory. Moving it would break both at once.
+# "Install by hand" copies the same directory. Moving it would break both at once.
 [ -f "$ROOT/skills/persistent-handoff/SKILL.md" ] \
   && ok "10 skill at skills/persistent-handoff/SKILL.md" || ko "10 skill moved"
+
+# 11. The changelog's top entry is the version the manifests ship. v0.1.0 was
+# tagged on a tree that did not contain the plugin, because nothing tied the
+# version string to a record of what changed. This is that tie.
+cv=$(grep -m1 -o '^## \[[0-9][0-9.]*\]' "$ROOT/CHANGELOG.md" 2>/dev/null | tr -d '#[] ')
+[ -n "$cv" ] && [ "$cv" = "$pv" ] \
+  && ok "11 changelog's top entry is $pv" || ko "11 (changelog=<$cv> plugin=<$pv>)"
 
 echo "---"
 [ "$fail" -eq 0 ] && echo "ALL TESTS PASS" || echo "SOME TESTS FAILED"

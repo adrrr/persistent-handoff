@@ -37,9 +37,19 @@ Not after every message. The transcript already keeps the conversation. The hand
 
 One path, chosen once, used by every session of this agent. The `SessionStart` hook reads that exact path, and a handoff written anywhere else is never read by anyone.
 
-The hook shipped with this skill uses `PERSISTENT_HANDOFF_FILE` when that variable is set. Otherwise it builds the name from the working directory, relative to the home directory, with the separators turned into dashes: an agent running in `~/work/acme/api` gets `~/.claude/handoffs/work-acme-api.md`. The whole path is used rather than the last segment alone, so `~/work/beta/api` is a different agent with its own file.
+The hook shipped with this skill uses `PERSISTENT_HANDOFF_FILE` when that variable is set. Otherwise it builds the name from the working directory: the path relative to the home directory with the separators turned into dashes, then a short digest of the full path. An agent in `/home/alice/work/acme/api` gets `~/.claude/handoffs/work-acme-api-32817b.md`. The whole path is used rather than the last segment alone, so `~/work/beta/api` is a different agent with its own file, and the digest separates directories the dashed part alone would merge.
 
-When you write the first handoff and nothing exists yet, that rule is how you work out where it goes.
+Do not try to compute that digest yourself. When a handoff already exists, the hook injects its path in the line above the content, so read it there. When you are writing the first one and nothing exists yet, ask the hook:
+
+```bash
+"${CLAUDE_SKILL_DIR}/../../hooks/session-start-handoff.sh" --path
+```
+
+It prints the path for the current directory, creates the directory it names, and exits. The hook ships beside this skill, two directories up from this file, and that is true of both install layouts: as a plugin the skill sits at `<plugin>/skills/persistent-handoff/`, installed by hand at `~/.claude/skills/persistent-handoff/`. Claude Code replaces `${CLAUDE_SKILL_DIR}` when it loads this file; if you ever see it unexpanded, resolve `../../hooks/session-start-handoff.sh` yourself against the directory you read this skill from. Do not go hunting for the hook by name: a plugin cache keeps old versions alongside the current one, and the first match is usually the wrong one.
+
+That answer is only correct for an agent whose path is not pinned. If a human set `PERSISTENT_HANDOFF_FILE` in the hook's own command rather than for the whole session, the hook reads the pinned path and `--path` does not know it. The line the hook injects above an existing handoff is the authority whenever the two could disagree; if there is no handoff yet and you have any reason to think the path was pinned, ask the human instead of writing.
+
+A handoff at a path the hook does not read is never read by anyone, and it fails silently: the hook goes on reporting that nothing is in flight.
 
 Never two files. If a handoff already exists, edit it in place. Do not stamp it with a date, do not keep the previous one for reference, do not open a second one for a second subject. Two handoffs mean the next session reads the wrong one.
 
