@@ -11,6 +11,8 @@ Your agent starts every session knowing where the work stands. It keeps one hand
 
 I run eight Claude Code sessions in tmux, and a cron restarts the idle ones every night. They used to wake up with no idea what they had spent the previous day on. Context dies often, and rarely with a warning. This is for the agents that keep running: an assistant that has been up for six months, a daemon that wakes on a cron, a fleet like mine.
 
+This was built for Claude Code running for weeks in tmux, with you talking to it from wherever you are, through `claude --channels` (Telegram, Discord, WhatsApp…) or Remote Control from the Claude app. On your side, a restart, a crash or a compact on the machine goes unnoticed. You send the next message and the agent picks up where the work stands. Without the handoff, that message is you explaining what it was doing. Nothing in the plugin depends on tmux or channels, it just started there.
+
 [Install](#install) · [Try it](#try-it) · [Contract](#the-contract) · [FAQ](#faq) · [Related](#related)
 
 ## Install
