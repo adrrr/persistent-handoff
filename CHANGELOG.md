@@ -3,6 +3,69 @@
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2026-08-30
+
+### Added
+
+- `RELEASING.md`, `CONTRIBUTING.md` and `SECURITY.md`. The release checklist
+  lived in one head, and the fact that `main` is the release channel, since the
+  marketplace clones the default branch, was written down nowhere.
+- `tests/manifests.sh` case 14 resolves the `${CLAUDE_SKILL_DIR}` path SKILL.md
+  hands the agent, and asserts an executable file is there. 14 cases. Editing
+  that suffix used to break nothing: Claude Code expands the variable when it
+  loads the skill, so a wrong path failed on the user's machine and never here.
+- `tests/hook.sh` case 37 pins the `--path` warning below. 37 cases.
+- CI runs `./demo/setup.sh`, then calls the hook it installs the way the demo's
+  own `settings.json` calls it. Nothing exercised the demo before, and it is the
+  first thing the README tells people to run.
+- CI runs `shellcheck` on the Linux leg, at warning severity. The two info-level
+  codes this repo trips are deliberate and would be noise: the `&& ok || ko` of
+  the test harness, and the literal `${CLAUDE_PLUGIN_ROOT}` that `manifests.sh`
+  matches the hook command against.
+- A `concurrency` group per ref, so a second push cancels the run before it.
+
+### Changed
+
+- The README states the Claude Code floor: 2.1.69 or newer, developed and tested
+  on 2.1.251. `${CLAUDE_SKILL_DIR}` landed in 2.1.69, and before 2.1.214 a fork
+  reports `resume`, which takes the same preamble. It also says the hook needs
+  `bash` on `PATH` rather than only a portable shell, since the shebang is
+  `bash` and an image without it runs nothing.
+- The skill asks for the write-to-a-temporary-file-then-move unconditionally. It
+  used to depend on whether several sessions of the agent could be alive at
+  once, which the agent has no way to know. A read landing mid-rewrite returns a
+  truncated handoff and nothing in it says so.
+- The README points at `.claude/settings.local.json` for wiring the hook into a
+  repo you share with other people, which is the file meant to stay out of the
+  commit.
+- The README documents what the derived path costs, and answers what happens to
+  a handoff whose directory is deleted: nothing prunes `~/.claude/handoffs/`, so
+  date the content. It also records that Claude Code drops a `SessionStart`
+  `additionalContext` already present in the transcript it reloaded, which is
+  read out of the 2.1.251 binary rather than documented.
+
+### Fixed
+
+- `--path` says on stderr when it cannot create the directory it names. The
+  `mkdir` was `|| true`, so a read-only `~/.claude` produced a confident path
+  inside a directory that does not exist, exit 0 and stderr empty, and the
+  agent's first write then died on "No such file or directory" with nothing
+  pointing at the cause. The exit code stays 0: a `SessionStart` hook that fails
+  the session is worse than one that warns.
+- `tests/hook.sh` case 27 reads a flag of its own instead of the global counter.
+  Any earlier failure swallowed it whole, no PASS and no FAIL, and the run
+  printed one line fewer without saying so.
+- Four numbers in the README that were wrong. The hook spawns seven short-lived
+  processes with a handoff and five without, not four. The fresh-start preamble
+  is 259 characters plus the path, not 260, and the one after a compact is 404
+  to 407, not 415. The workflow runs on pushes to `main` and on demand as well
+  as on pull requests.
+- `tests/hook.sh` unsets `PERSISTENT_HANDOFF_FILE`. The suite stages handoffs at
+  derived paths, so a pinned one inherited from the shell won twelve cases, and
+  a pinned one is exactly what the README tells a fleet operator to export.
+- `cancel-in-progress` is scoped to pull requests. On `main` it could have cut
+  the run for a commit that installers already had.
+
 ## [0.2.1] - 2026-08-30
 
 ### Changed
@@ -108,6 +171,7 @@ Initial release: the `persistent-handoff` skill, the `SessionStart` hook, and
 `tests/hook.sh`. Installed by hand, by copying two files and adding a
 `SessionStart` entry to `settings.json`.
 
+[0.2.2]: https://github.com/adrrr/persistent-handoff/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/adrrr/persistent-handoff/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/adrrr/persistent-handoff/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/adrrr/persistent-handoff/releases/tag/v0.1.0

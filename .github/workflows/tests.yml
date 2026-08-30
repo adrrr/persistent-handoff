@@ -9,6 +9,14 @@ on:
 permissions:
   contents: read
 
+# A second push to the same pull request cancels the first. Three OS legs per run
+# add up, and only the last commit's result is looked at anyway. Not on `main`:
+# main is the release channel, every commit there is what somebody installs, and
+# two merges in a row would leave the first one with no green run behind it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   tests:
     name: ${{ matrix.os }}
@@ -39,6 +47,20 @@ jobs:
           fi
           jq --version
 
+      # One leg is enough: shellcheck reads the same files on all three. Warning
+      # and up. The two info-level codes this repo trips are deliberate and would
+      # be noise: SC2015 is the `... && ok || ko` of the test harness, where `ok`
+      # cannot fail, and SC2016 is the literal ${CLAUDE_PLUGIN_ROOT} that
+      # manifests.sh matches the hook command against.
+      - name: ShellCheck
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          command -v shellcheck >/dev/null 2>&1 \
+            || { sudo apt-get update && sudo apt-get install -y shellcheck; }
+          shellcheck --version
+          shellcheck -S warning hooks/*.sh demo/setup.sh tests/*.sh
+
       - name: Hook
         shell: bash
         run: bash tests/hook.sh
@@ -46,3 +68,19 @@ jobs:
       - name: Manifests
         shell: bash
         run: bash tests/manifests.sh
+
+      # demo/setup.sh is what the README's "Try it" section runs, and nothing
+      # ran it. Install it into demo/homelab, then call the hook the way the
+      # demo's own settings.json calls it, and check the handoff comes back.
+      # Last, because it writes into the working tree.
+      - name: Demo
+        shell: bash
+        run: |
+          ./demo/setup.sh
+          test -x demo/homelab/.claude/hooks/session-start-handoff.sh
+          test -f demo/homelab/.claude/skills/persistent-handoff/SKILL.md
+          payload=$(printf '{"session_id":"ci","cwd":"%s/demo/homelab","hook_event_name":"SessionStart","source":"startup"}' "$PWD")
+          out=$(printf '%s' "$payload" \
+            | PERSISTENT_HANDOFF_FILE="$PWD/demo/homelab/.claude/handoff.md" \
+              demo/homelab/.claude/hooks/session-start-handoff.sh)
+          printf '%s\n' "$out" | grep -q restic

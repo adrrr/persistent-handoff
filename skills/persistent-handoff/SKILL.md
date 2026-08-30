@@ -13,7 +13,7 @@ An agent has one handoff file, always the same one. It is a state, not a journal
 
 | Rule | In practice |
 |---|---|
-| The same file, always | Edit it in place. Never a second file, never a dated copy |
+| The same file, always | Rewrite it at the same path. Never a second file, never a dated copy |
 | Read at every session start | The `SessionStart` hook injects it; you rarely open it to read |
 | Written at milestones | Decision, PR, conclusion, blocker, unanswered question |
 | State, not narrative | Where things stand, not how they got there |
@@ -51,7 +51,7 @@ That answer is only correct for an agent whose path is not pinned. If a human se
 
 A handoff at a path the hook does not read is never read by anyone, and it fails silently: the hook goes on reporting that nothing is in flight.
 
-Never two files. If a handoff already exists, edit it in place. Do not stamp it with a date, do not keep the previous one for reference, do not open a second one for a second subject. Two handoffs mean the next session reads the wrong one.
+Never two files. If a handoff already exists, rewrite the one that is there. Do not stamp it with a date, do not keep the previous one for reference, do not open a second one for a second subject. Two handoffs mean the next session reads the wrong one.
 
 ## What goes in it
 
@@ -92,7 +92,7 @@ The shape, filled in with whatever the work actually is:
 
 Every update deletes what is resolved or stale. A file that only grows is a journal, and nobody reads a journal at boot.
 
-Rewrite it in place. If several sessions of the same agent can be alive at once, write to a temporary file and move it over the handoff, so a session that starts mid-write never reads half a file.
+Rewrite it at the same path, always through a temporary file moved over it, never straight into the file. A session starting mid-write reads a truncated handoff, and nothing in what it reads says so. Write the new content to `<handoff>.tmp` in the same directory, then `mv` it over the handoff. An edit or write tool goes straight into the file, so it is the wrong tool for this one.
 
 Emptiness is legitimate. If an update empties the handoff, delete the file. An empty handoff still costs context at every session start and tells that session nothing; its absence already says it: nothing is in flight.
 
@@ -102,7 +102,7 @@ The same rule applies before writing the first one. A milestone with nothing in 
 
 When the hook is installed, the handoff is already in your context and you do not need to open the file to know where things stand. Start from "Next action" and raise the open questions if any of them block you. If nothing was injected and you have reason to expect a handoff, read the file yourself rather than concluding there is none: a hook that was never wired up looks exactly like an agent with nothing in flight. Same reflex if the injected text looks cut short: hook output is capped, the file is the full version.
 
-Opening it again is for updating, not for catching up. At the next milestone, read the file (most edit tools require it) and rewrite it in place, dropping what you resolved along the way.
+Opening it again is for updating, not for catching up. At the next milestone, read the file, then rewrite it the way "Clean as you advance" says, dropping what you resolved along the way.
 
 ## When the preamble says your context is newer
 
