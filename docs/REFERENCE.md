@@ -33,7 +33,7 @@ Three sessions in one directory are one agent by this design, and the last write
 
 ## The 10,000 character cap
 
-Claude Code caps a hook's output at 10,000 characters and injects a truncated preview plus a path past that. This is Claude Code's limit rather than this repo's, so it can move in a future release with nothing to warn you. The preamble takes 259 characters plus the path on a fresh start, and 404 to 407 after a compact, a resume or a fork. A handoff kept to 300 to 500 tokens sits far below the limit; one grown into a journal arrives as a preview.
+Claude Code caps a hook's output at 10,000 characters and injects a truncated preview plus a path past that. This is Claude Code's limit rather than this repo's, so it can move in a future release with nothing to warn you. The preamble takes 259 characters plus the path on a fresh start, and 404 to 407 after a compact, a resume or a fork. A handoff kept to 300 to 500 tokens sits far below the limit. One grown into a journal arrives as a preview.
 
 ## Repeated resumes do not stack copies
 

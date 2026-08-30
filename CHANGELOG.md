@@ -27,6 +27,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   with the full content is fine, and the temporary file moved over the handoff
   stays the way to go when a shell exists. The GIF's session has no Bash, and the
   old wording called the tool it uses the wrong one.
+- The README says what the plugin was built for: agents that run for weeks and
+  get their messages through `claude --channels` or Remote Control, where a
+  restart has to go unnoticed from the other end.
 
 ## [0.2.3] - 2026-08-30
 

@@ -33,15 +33,15 @@
 # times out and fails rather than shipping. Record it again, and do not name the
 # skill in the prompt.
 #
-# Expect to record more than once. Height is sized for a handoff rewritten in
-# place. When the model rewrites the whole file instead, the diff is twice as
+# Expect to record more than once. Height is sized for a Write whose diff is
+# small. When the model rewrites the whole file instead, the diff is twice as
 # tall, Claude Code clips its own render rather than scrolling, the last line of
 # the turn never reaches the screen and the second Wait times out. That is the
 # tape refusing a take whose payoff the viewer would not have seen either.
 #
 # The flags sit in a shell function so the restart can show `claude` and nothing
-# else. Same flags as the README's "Try it", plus Skill and Write, because act
-# one writes the handoff. Nothing scopes Write to that file, the auto mode
+# else. Same flags as the README's "Try it". Skill and Write are in there because
+# act one writes the handoff. Nothing scopes Write to that file, the auto mode
 # classifier is what let it through, and the GIF shows it saying so.
 #
 # Three things this tape does not do for you. Accept the trust prompt for
