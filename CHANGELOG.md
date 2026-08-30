@@ -3,6 +3,27 @@
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- The demo GIF is two acts, and the cut between them is a restart. The first act
+  is the half that was missing: the user answers the handoff's open question and
+  says a restart is coming, the skill fires on its own, and `.claude/handoff.md`
+  is rewritten on screen with the question gone. Then `/exit`, `claude` again,
+  and the fresh session answers `where were we?` from the file the previous one
+  wrote. 43.8 seconds, 878 KB.
+- The demo runs with `--tools Read,Glob,Grep,Skill,Write`. Writing the handoff is
+  the point of the first act. Nothing scopes Write to the handoff, so the README
+  says to keep the session to the demo project. `demo/setup.sh` and the README
+  print the same flags, and both say to restart with them.
+- `demo.tape` waits on the `Skill(persistent-handoff)` line, so a take where the
+  skill does not fire by itself times out instead of shipping. It also carries
+  the ffmpeg pass, which is what takes the raw capture from 52.6 s and 1.17 MB
+  down to what ships, and the three things it cannot do for you: accept the
+  folder's trust prompt, record outside tmux, and restore the demo handoff
+  afterwards.
+
 ## [0.2.3] - 2026-08-30
 
 ### Changed
@@ -195,6 +216,7 @@ Initial release: the `persistent-handoff` skill, the `SessionStart` hook, and
 `tests/hook.sh`. Installed by hand, by copying two files and adding a
 `SessionStart` entry to `settings.json`.
 
+[Unreleased]: https://github.com/adrrr/persistent-handoff/compare/v0.2.3...HEAD
 [0.2.3]: https://github.com/adrrr/persistent-handoff/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/adrrr/persistent-handoff/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/adrrr/persistent-handoff/compare/v0.2.0...v0.2.1

@@ -5,9 +5,9 @@
 
 Your agent starts every session knowing where the work stands. It keeps one handoff file, writes to it at milestones, and a `SessionStart` hook reads it back before you ask the first question.
 
-![demo](demo.gif)
+![Animated terminal recording of the agent loading the persistent-handoff skill, writing .claude/handoff.md, exiting, and a new session answering from that file](demo.gif)
 
-*`/clear` wipes the context, the hook puts the handoff back, and the agent answers `where were we?` from where the work stands.*
+*Two acts, and the cut between them is a restart. Act one, the agent rewrites its handoff. Act two, a new session answers `where were we?` from that file.*
 
 I run eight Claude Code sessions in tmux, and a cron restarts the idle ones every night. They used to wake up with no idea what they had spent the previous day on. Context dies often, and rarely with a warning. This is for the agents that keep running: an assistant that has been up for six months, a daemon that wakes on a cron, a fleet like mine.
 
@@ -29,15 +29,17 @@ The hook needs `bash` on `PATH`. It uses no BSD-only flags and `jq` is optional,
 
 ## Try it
 
-The demo is a fictional homelab project with a real handoff in it. Clone, install the hook into it, and ask the agent where things stand:
+The demo is a fictional homelab project with a real handoff in it. Clone, install the hook into it, and talk to the agent:
 
 ```bash
 git clone https://github.com/adrrr/persistent-handoff && cd persistent-handoff
 ./demo/setup.sh && cd demo/homelab
-claude --model claude-sonnet-5 --setting-sources project,local --strict-mcp-config --tools Read,Glob,Grep
+claude --model claude-sonnet-5 --setting-sources project,local --strict-mcp-config --tools Read,Glob,Grep,Skill,Write
 ```
 
-Then ask `where were we?`. Those are the flags the GIF was recorded with. They load only the demo's own settings and leave the session read-only.
+Those are the flags the GIF was recorded with. They load only the demo's own settings and none of your MCP servers. `Write` is there because act 1 writes the handoff, and nothing scopes it to that one file, so keep the session to the demo project.
+
+Answer the handoff's open question the way the GIF does: `Keep the daily snapshots for the year, that's decided. I'm going to restart you in a minute.` The skill loads on its own and rewrites `.claude/handoff.md`, question gone. Claude Code treats anything under `.claude/` as sensitive, so a session set to ask will ask you first. The GIF ran in auto mode, which allowed the write and printed that it had. Then `/exit`, start `claude` again with the same flags, and ask `where were we?`. That answer comes out of the handoff the hook fed the session, not out of a file the agent opened. The one `Read` on screen in act 2 is the log the handoff points at.
 
 Claude Code will ask you to trust the folder, because the demo carries a project hook. The prompt preselects the option that exits, and it is right to be careful. The hook feeds the handoff straight into a fresh session as context, and the file tells that session what to do next: treat it as executable input, and read [`hooks/session-start-handoff.sh`](hooks/session-start-handoff.sh) first. That is fine in `~/.claude/handoffs`, which only you write to. A handoff committed to a repo means anyone who can push there can write into your agent's context, so keep that to repos whose writers you trust.
 
@@ -96,10 +98,7 @@ Nothing happens until a handoff exists. The hook stays silent when the file is m
 
 **Why not just use `/compact`?** A compaction summary lives in the session that holds it and dies with it. The file survives a crash, a `kill -9` and a reboot, none of which give the model a chance to summarize anything. They also work on different material: compaction keeps what the model judged worth keeping, the handoff keeps what you decided matters, in your words. Use both.
 
-**Does it re-read the file after `/compact`?**
-
-Yes. It costs the size of the file once more, under 10,000 characters, and the preamble tells the agent that its own context wins for what it did in this session. Cheap, and nothing the summary dropped is lost.
-**What happens after a compact or a resume?** The hook fires there too, about 500 tokens, so the handoff is present whatever the compaction summary happened to keep. The preamble says which side wins: your context is newer for what you did in this session, the file is the reference for everything else. If the two disagree, update the file. Repeated resumes do not stack copies, for the reason [`docs/REFERENCE.md`](docs/REFERENCE.md) spells out.
+**What happens after a compact or a resume?** The hook fires there too, about 500 tokens, so the handoff is present whatever the compaction summary happened to keep, and nothing the summary dropped is lost. The preamble says which side wins: your context is newer for what you did in this session, the file is the reference for everything else. If the two disagree, update the file. Repeated resumes do not stack copies, for the reason [`docs/REFERENCE.md`](docs/REFERENCE.md) spells out.
 
 **Why delete the file when it is empty?** Because every session start reads it. A handoff that is always present, half stale, describing work that finished last week, teaches every new session to skim it. Deleting it keeps the file meaningful: if it is there, something is genuinely in flight. For an agent whose work never ends, and which therefore never gets to delete it, pruning every update does the same job.
 
