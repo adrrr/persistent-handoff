@@ -94,7 +94,7 @@ Every update deletes what is resolved or stale. A file that only grows is a jour
 
 Rewrite it in place. If several sessions of the same agent can be alive at once, write to a temporary file and move it over the handoff, so a session that starts mid-write never reads half a file.
 
-Emptiness is legitimate. If an update empties the handoff, delete the file. An empty handoff still costs context at every session start and tells the next session nothing; its absence already says it: nothing is in flight.
+Emptiness is legitimate. If an update empties the handoff, delete the file. An empty handoff still costs context at every session start and tells that session nothing; its absence already says it: nothing is in flight.
 
 The same rule applies before writing the first one. A milestone with nothing in flight writes no handoff.
 
@@ -104,6 +104,10 @@ When the hook is installed, the handoff is already in your context and you do no
 
 Opening it again is for updating, not for catching up. At the next milestone, read the file (most edit tools require it) and rewrite it in place, dropping what you resolved along the way.
 
+## When the preamble says your context is newer
+
+After a compact, a resume or a fork, the hook injects the handoff under a preamble saying your context above wins for what you did in this session, and the file wins for everything else. Reconcile the two before your next action, and if they diverge, update the file. Your context is newer than what you wrote yourself, not newer than the file, since another session of this agent may have written it while you worked. If nothing diverges, write nothing.
+
 ## Common mistakes
 
 | Mistake | Why it hurts |
@@ -111,7 +115,7 @@ Opening it again is for updating, not for catching up. At the next milestone, re
 | One handoff per session or per date | The next session picks the wrong file, or reads three |
 | Writing the narrative of the session | Nobody needs the path you took, only where it ended |
 | Keeping resolved items "for history" | The file grows until it is skipped at boot |
-| Writing a handoff with nothing in it | Burns context at every start to say nothing |
+| Writing a handoff with nothing in it | Burns context at every session start to say nothing |
 | Vague next action ("continue the migration") | A fresh session spends its first ten minutes deciding what that means |
 | Putting durable knowledge in the handoff | Mechanisms, ops commands and stable facts belong in a README, an instructions file or the agent's memory. The handoff carries what is in flight |
 | "I'll keep the old handoff for reference" | That is two files, and the next session cannot tell which one is current. The transcript is the reference |

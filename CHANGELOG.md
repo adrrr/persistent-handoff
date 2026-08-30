@@ -3,6 +3,36 @@
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-08-30
+
+### Changed
+
+- The hook picks its preamble from the `SessionStart` source and states a
+  precedence. On `compact`, `resume` and `fork` it says the session's own
+  context is newer than the file for what that session did, and the file is the
+  reference for everything else, so a disagreement is settled by updating the
+  file. It repeats the instructions the other preamble carries, start from
+  "Next action", prune on update, delete when nothing is in flight, since a
+  compacted session is precisely the one that no longer has them. On `startup`
+  and `clear` the preamble is unchanged. An absent, an
+  unreadable or an unknown source takes the `startup` preamble, which asserts no
+  precedence; that is also what happens with no `jq` to read the payload with,
+  the same fallback the derived path already takes.
+  The hook still runs on all five sources. Narrowing it to `startup|clear` was
+  tried and dropped: a full compaction keeps no message verbatim, so the handoff
+  would survive only inside the summary, at the summarizer's discretion, and a
+  second compaction would summarize the first. Presence is worth the ~500 tokens
+  it costs; the double state it used to create is what the preamble now settles.
+- `tests/hook.sh` is 36 cases. The four new ones pin the preamble for each
+  source, for an absent and an unknown source, and for the no-`jq` fallback.
+  `tests/manifests.sh` is 13: cases 5, 12 and 13 hold `hooks/hooks.json`, the
+  demo's `settings.json` and the README's hand-install snippet to a single
+  matcher-less `SessionStart` entry.
+- The README lost about a hundred lines. The passages that re-explained the
+  contract in prose are gone; install, the contract, the example, the file's
+  location, the cap, the FAQ and the tests all stay.
+- A release badge sits next to the tests badge.
+
 ## [0.2.0] - 2026-08-30
 
 ### Added
@@ -78,5 +108,6 @@ Initial release: the `persistent-handoff` skill, the `SessionStart` hook, and
 `tests/hook.sh`. Installed by hand, by copying two files and adding a
 `SessionStart` entry to `settings.json`.
 
+[0.2.1]: https://github.com/adrrr/persistent-handoff/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/adrrr/persistent-handoff/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/adrrr/persistent-handoff/releases/tag/v0.1.0
