@@ -8,7 +8,8 @@
 #
 # Install:
 #   install -m 755 session-start-handoff.sh ~/.claude/hooks/
-#   then register it under hooks.SessionStart in settings.json (see README).
+#   then register it under hooks.SessionStart in settings.json
+#   (see docs/INSTALL.md).
 #
 # Configuration:
 #   PERSISTENT_HANDOFF_FILE  explicit path to the handoff. Set this for an agent

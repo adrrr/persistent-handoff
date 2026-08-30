@@ -3,6 +3,30 @@
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3] - 2026-08-30
+
+### Changed
+
+- The README is built around its first screen: the pitch, the GIF with a
+  caption, an anchor row, then Install. 204 lines down to 129. The reference material moved into `docs/`; the only cut is the Tests section's list of what each case covers.
+- `docs/REFERENCE.md` is new and holds what the README used to explain inline:
+  the derived name and its digest, pinning `PERSISTENT_HANDOFF_FILE`, the
+  `${CLAUDE_PROJECT_DIR}` expansion that does not happen inside an `env` block,
+  several sessions sharing one path, the 10,000 character cap with the preamble
+  byte counts, and the resume deduplication. The README keeps one sentence on
+  each and links here.
+- `docs/INSTALL.md` is new and holds the hand install: the two copy commands,
+  the `settings.json` snippet, the five `SessionStart` sources a missing
+  `matcher` covers, the double injection a plugin installed on top of it causes,
+  and the Windows note. The README keeps the WSL-or-Git-for-Windows sentence,
+  since a hook that lands in PowerShell runs nothing at all.
+- Case 13 of `tests/manifests.sh` reads the hand-install snippet from
+  `docs/INSTALL.md`. It went red on the move before it was pointed at the new
+  file, which is the only evidence that it pins anything. `CONTRIBUTING.md`,
+  `demo.tape` and the hook's own install comment name the same file now.
+- The "upgrading from 0.1.0" paragraph in Install is a link to the 0.2.0
+  changelog entry, which already carried it word for word.
+
 ## [0.2.2] - 2026-08-30
 
 ### Added
@@ -171,6 +195,7 @@ Initial release: the `persistent-handoff` skill, the `SessionStart` hook, and
 `tests/hook.sh`. Installed by hand, by copying two files and adding a
 `SessionStart` entry to `settings.json`.
 
+[0.2.3]: https://github.com/adrrr/persistent-handoff/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/adrrr/persistent-handoff/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/adrrr/persistent-handoff/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/adrrr/persistent-handoff/compare/v0.1.0...v0.2.0

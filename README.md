@@ -3,11 +3,15 @@
 [![tests](https://github.com/adrrr/persistent-handoff/actions/workflows/tests.yml/badge.svg)](https://github.com/adrrr/persistent-handoff/actions/workflows/tests.yml)
 [![release](https://img.shields.io/github/v/release/adrrr/persistent-handoff)](https://github.com/adrrr/persistent-handoff/releases)
 
+Your agent starts every session knowing where the work stands. It keeps one handoff file, writes to it at milestones, and a `SessionStart` hook reads it back before you ask the first question.
+
 ![demo](demo.gif)
 
-`/clear` wipes the context, the `SessionStart` hook puts the handoff back, and the next question is answered from where the work stands.
+*`/clear` wipes the context, the hook puts the handoff back, and the agent answers `where were we?` from where the work stands.*
 
-Your agent keeps one file, always the same one. It updates it at milestones, reads it back automatically at every session start, and drops from it whatever it has resolved. This is for agents that keep running: a personal assistant that has been up for six months, a fleet of Claude Code sessions in tmux, a daemon that wakes on a cron. Their context dies often and rarely with a warning.
+I run eight Claude Code sessions in tmux, and a cron restarts the idle ones every night. They used to wake up with no idea what they had spent the previous day on. Context dies often, and rarely with a warning. This is for the agents that keep running: an assistant that has been up for six months, a daemon that wakes on a cron, a fleet like mine.
+
+[Install](#install) · [Try it](#try-it) · [Contract](#the-contract) · [FAQ](#faq) · [Related](#related)
 
 ## Install
 
@@ -17,19 +21,11 @@ The repo is its own plugin marketplace. One command adds it and installs the plu
 claude plugin marketplace add adrrr/persistent-handoff && claude plugin install persistent-handoff@persistent-handoff
 ```
 
-Inside a running session, `/plugin marketplace add adrrr/persistent-handoff` then `/plugin install persistent-handoff@persistent-handoff` do the same thing. Start a new session and both the skill and the hook are live. Remove it with `claude plugin uninstall persistent-handoff@persistent-handoff`. If you would rather not use plugins, [install it by hand](#install-by-hand).
-
-Upgrading from 0.1.0? The derived filename gained a digest, so the hook will not find your existing handoff. Run `--path` in the directory and rename the file to what it prints, or pin `PERSISTENT_HANDOFF_FILE` to the old path. Nothing warns you otherwise: the hook reads the new name, finds nothing, and stays silent. Coming from the hand install? Remove the `SessionStart` entry from your `settings.json` and delete `~/.claude/skills/persistent-handoff/`, or the two handlers inject the handoff twice.
+Inside a running session, `/plugin marketplace add adrrr/persistent-handoff` then `/plugin install persistent-handoff@persistent-handoff` do the same thing. Start a new session and both the skill and the hook are live. Remove it with `claude plugin uninstall persistent-handoff@persistent-handoff`. Would rather not use plugins, or already installed it by hand? [`docs/INSTALL.md`](docs/INSTALL.md). Upgrading from 0.1.0? The derived filename gained a digest, and the [0.2.0 changelog entry](CHANGELOG.md#upgrading-from-010) says what to rename.
 
 Requires Claude Code 2.1.69 or newer, developed and tested on 2.1.251. `${CLAUDE_SKILL_DIR}`, which the skill uses to name the hook, landed in 2.1.69. Before 2.1.214 a fork reports `resume`, which takes the same preamble, so nothing else changes.
 
-The hook needs `bash` on `PATH`. It uses no BSD-only flags and `jq` is optional, but the shebang is `bash`, not `sh`, so a container image without it will not run the hook at all.
-
-### Windows
-
-WSL is the recommended path. Claude Code inside WSL is a Linux environment, so everything here applies unchanged.
-
-On native Windows, Claude Code runs a `command` hook through Git Bash when [Git for Windows](https://git-scm.com/downloads/win) is installed, and through PowerShell when it is not. Install Git for Windows first. Without it the hook lands in PowerShell, which will not run a bash script.
+The hook needs `bash` on `PATH`. It uses no BSD-only flags and `jq` is optional, but the shebang is `bash`, not `sh`, so a container image without it will not run the hook at all. On Windows that means WSL, or [Git for Windows](https://git-scm.com/downloads/win) installed first: without it a `command` hook lands in PowerShell, which will not run a bash script either. [`docs/INSTALL.md`](docs/INSTALL.md#windows) has both cases.
 
 ## Try it
 
@@ -90,92 +86,30 @@ That is the demo's handoff, and `./demo/setup.sh` puts it in a project you can o
 
 ## Where the handoff lives
 
-By default the hook names the file after the working directory, relative to your home directory, with the separators turned into dashes and a short digest of the full path on the end. An agent running in `/home/alice/work/acme/api` reads `~/.claude/handoffs/work-acme-api-32817b.md`.
+By default the hook names the file after the working directory, relative to your home directory, with the separators turned into dashes and a short digest of the full path on the end. An agent running in `/home/alice/work/acme/api` reads `~/.claude/handoffs/work-acme-api-32817b.md`. Run `session-start-handoff.sh --path` in a directory to read that name rather than work it out.
 
-The dashed part lets you read the directory off the filename. The six hex characters carry what it loses: without them `~/my project` and `~/my-project` are one file, and so are `~/abs/var/tmp/x` and `/var/tmp/x`. The digest covers the absolute path, so yours will not match the example above. Twenty-four bits is not a uniqueness proof, it makes a clash a coincidence rather than a certainty. A `cksum` collision can also be constructed on purpose by anyone who wants one, and a handoff is executable input. Pin `PERSISTENT_HANDOFF_FILE` if you need a guarantee. The digest needs `cksum`, which is POSIX and present everywhere this is tested. Without it the name falls back to the dashed part alone, and the hook says so on stderr.
+An agent that is not tied to one directory pins `PERSISTENT_HANDOFF_FILE` to an absolute path instead. There is one expansion trap in doing that, and the digest is a coincidence guard rather than a uniqueness proof. [`docs/REFERENCE.md`](docs/REFERENCE.md) has both, plus what happens when several sessions share one path and what Claude Code's 10,000 character cap on hook output does to a handoff grown into a journal.
 
-To read the name for a directory rather than work it out, run `session-start-handoff.sh --path` there. That is how the skill finds the path before its first write. After that, the hook names the path in the line it injects above the content.
-
-For an agent that is not tied to one directory, pin the path instead. The hook reads `PERSISTENT_HANDOFF_FILE`, and the place to set it is the `env` block of the same `settings.json`:
-
-```json
-{
-  "env": {
-    "PERSISTENT_HANDOFF_FILE": "/home/alice/.claude/handoffs/fleet.md"
-  }
-}
-```
-
-Write an absolute path there. `${CLAUDE_PROJECT_DIR}` is expanded in a hook's `command` string but not inside the `env` block, so a path using it there arrives at the hook literally and finds no file. The demo sets the variable inline in the hook command instead, where the expansion does happen. That form sets it for the hook only, so the agent never sees it and writes its first handoff somewhere else. Use it only when you tell the agent outright where its handoff lives, which is why the demo names its own handoff in its README.
-
-Nothing happens until a handoff exists. The hook stays silent when the file is missing or holds nothing but whitespace, so installing it costs nothing on sessions with no state to carry. Three sessions in one directory are one agent by this design, and the last writer wins. Writing to a temporary file and moving it over prevents a torn read, not a lost update, so pin `PERSISTENT_HANDOFF_FILE` per session if they hold genuinely separate work.
-
-Claude Code caps a hook's output at 10,000 characters and injects a truncated preview plus a path past that. This is Claude Code's limit rather than this repo's, so it can move in a future release with nothing to warn you. The preamble takes 259 characters plus the path on a fresh start, and 404 to 407 after a compact, a resume or a fork. A handoff kept to 300 to 500 tokens sits far below the limit; one grown into a journal arrives as a preview.
+Nothing happens until a handoff exists. The hook stays silent when the file is missing or holds nothing but whitespace, so installing it costs nothing on sessions with no state to carry.
 
 ## FAQ
 
-**Why not just use `/compact`?**
+**Why not just use `/compact`?** A compaction summary lives in the session that holds it and dies with it. The file survives a crash, a `kill -9` and a reboot, none of which give the model a chance to summarize anything. They also work on different material: compaction keeps what the model judged worth keeping, the handoff keeps what you decided matters, in your words. Use both.
 
-A compaction summary lives in the session that holds it and dies with it. The file survives a crash, a `kill -9` and a reboot, none of which give the model a chance to summarize anything. They also work on different material: compaction keeps what the model judged worth keeping, the handoff keeps what you decided matters, in your words. Use both.
+**Does it re-read the file after `/compact`?**
 
-**What happens after a compact or a resume?**
+Yes. It costs the size of the file once more, under 10,000 characters, and the preamble tells the agent that its own context wins for what it did in this session. Cheap, and nothing the summary dropped is lost.
+**What happens after a compact or a resume?** The hook fires there too, about 500 tokens, so the handoff is present whatever the compaction summary happened to keep. The preamble says which side wins: your context is newer for what you did in this session, the file is the reference for everything else. If the two disagree, update the file. Repeated resumes do not stack copies, for the reason [`docs/REFERENCE.md`](docs/REFERENCE.md) spells out.
 
-The hook fires there too, about 500 tokens, so the handoff is present whatever the compaction summary happened to keep. The preamble says which side wins: your context is newer for what you did in this session, the file is the reference for everything else. If the two disagree, update the file.
+**Why delete the file when it is empty?** Because every session start reads it. A handoff that is always present, half stale, describing work that finished last week, teaches every new session to skim it. Deleting it keeps the file meaningful: if it is there, something is genuinely in flight. For an agent whose work never ends, and which therefore never gets to delete it, pruning every update does the same job.
 
-Repeated resumes do not stack copies. Claude Code drops a `SessionStart` `additionalContext` whose exact text is already in the transcript it reloaded. The two preambles are two different strings, so a session that started fresh and was then resumed carries both, and every resume after that is deduplicated for as long as the file does not change. That is read out of the 2.1.251 binary and documented nowhere, so take it as an observation rather than a contract.
+**Why not just keep this in CLAUDE.md or the agent's memory?** Different lifetimes. CLAUDE.md and memory hold what stays true: mechanisms, commands, preferences. The handoff holds what is in flight right now, and gets deleted when it lands. Put a stable fact in the handoff and it dies with the work. Put the current blocker in memory and it outlives its own resolution.
 
-**Why delete the file when it is empty?**
+**My agent is a coding session I close at the end of the day. Do I want this?** Probably not. Persistence buys you nothing when the agent dies on purpose after one task, and the bookkeeping is real work. Use a disposable handoff instead.
 
-Because every session start reads it. A handoff that is always present, half stale, describing work that finished last week, teaches every new session to skim it. Deleting it keeps the file meaningful: if it is there, something is genuinely in flight. For an agent whose work never ends, and which therefore never gets to delete it, pruning every update does the same job.
+**I deleted the project. Is its handoff still there?** Yes. Nothing prunes `~/.claude/handoffs/`, so a handoff named after a directory outlives that directory. The hook puts no date in the preamble, so date the content the way the example above does and a stale file says so when you open it.
 
-**Why not just keep this in CLAUDE.md or the agent's memory?**
-
-Different lifetimes. CLAUDE.md and memory hold what stays true: mechanisms, commands, preferences. The handoff holds what is in flight right now, and gets deleted when it lands. Put a stable fact in the handoff and it dies with the work. Put the current blocker in memory and it outlives its own resolution.
-
-**My agent is a coding session I close at the end of the day. Do I want this?**
-
-Probably not. Persistence buys you nothing when the agent dies on purpose after one task, and the bookkeeping is real work. Use a disposable handoff instead.
-
-**I deleted the project. Is its handoff still there?**
-
-Yes. Nothing prunes `~/.claude/handoffs/`, so a handoff named after a directory outlives that directory. The hook puts no date in the preamble, so date the content the way the example above does and a stale file says so when you open it.
-
-**What does it cost on every session start?**
-
-On the derived path, seven short-lived processes when a handoff is there: two `cat`, three `jq`, one `cksum`, one `tr`. Five when there is none. Between 10 and 25 ms depending on the machine and what else it is doing. Zero tokens when no handoff exists, which is the normal case. With one, roughly 400 to 600 tokens.
-
-## Install by hand
-
-Copy the skill and the hook, then wire the hook into your settings.
-
-```bash
-src=$(mktemp -d) && git clone https://github.com/adrrr/persistent-handoff "$src"
-mkdir -p ~/.claude/skills/persistent-handoff ~/.claude/hooks ~/.claude/handoffs
-cp -r "$src"/skills/persistent-handoff/. ~/.claude/skills/persistent-handoff/
-install -m 755 "$src"/hooks/session-start-handoff.sh ~/.claude/hooks/
-```
-
-The `cp` copies the contents rather than the directory, so running the install twice updates the skill instead of nesting a copy inside it. Then add the hook to `~/.claude/settings.json`, or to a project `.claude/settings.json`. In a repo you share with other people, use `.claude/settings.local.json` instead: same shape, and it is the file meant to stay out of the commit.
-
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$HOME\"/.claude/hooks/session-start-handoff.sh",
-            "timeout": 10
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-There is no `matcher`, so the hook runs on all five `SessionStart` sources: `startup`, `clear`, `compact`, `resume` and `fork`. It reads the source out of the payload and switches its preamble on the last three, the ones where the session already holds a context of its own.
+**What does it cost on every session start?** On the derived path, seven short-lived processes when a handoff is there: two `cat`, three `jq`, one `cksum`, one `tr`. Five when there is none. Between 10 and 25 ms depending on the machine and what else it is doing. Zero tokens when no handoff exists, which is the normal case. With one, roughly 400 to 600 tokens.
 
 ## Related
 
@@ -191,13 +125,9 @@ Want an agent to record what it decided? This repo. Want a record of how it got 
 
 ## Tests
 
-`bash tests/hook.sh`, 37 cases covering the hook's failure modes and its two preambles: path-slug collisions inside and outside `$HOME`, a `$HOME` containing glob metacharacters, a `jq` that exists but fails, a directory where the file should be, a dangling symlink, unreadable handoffs surfaced to the session instead of swallowed, a 2 MB handoff still emitting valid JSON, the fallback taken when no `cksum` is available, a `--path` that cannot create the directory it names, and the preamble chosen for each `SessionStart` source, including an absent one and an unknown one.
+`bash tests/hook.sh` is 37 cases on the hook's failure modes and its two preambles. `bash tests/manifests.sh` is 14 pinning the plugin manifests, and holding the `SessionStart` block to one shape in all three copies: the plugin, the demo, and the hand-install snippet in [`docs/INSTALL.md`](docs/INSTALL.md).
 
-`bash tests/manifests.sh`, 14 cases pinning the plugin manifests: valid JSON, the plugin root variable in the hook command, the script's exec bit, one matcher-less `SessionStart` entry in all three copies, the plugin, the demo and the README snippet, the two names the install id is built from, the skill's location, the `${CLAUDE_SKILL_DIR}` path SKILL.md hands the agent, and the changelog agreeing with the shipped version.
-
-Both run on `ubuntu-latest`, `macos-latest` and `windows-latest`, on every pull request, on every push to `main`, and on demand, 51 assertions each, minus three on Windows where NTFS will not stage what they need: a `chmod 000` that actually denies a read, a `chmod 555` directory, and a dangling symlink. A skipped case asserted nothing, so the suite prints how many it skipped alongside the pass.
-
-The same workflow runs `./demo/setup.sh` and calls the hook it installs the way the demo's `settings.json` calls it, and runs `shellcheck` on the Linux leg. See [`.github/workflows/tests.yml`](.github/workflows/tests.yml).
+Both run on `ubuntu-latest`, `macos-latest` and `windows-latest`, on every pull request, on every push to `main`, and on demand, 51 assertions each, minus three on Windows where NTFS will not stage what they need: a `chmod 000` that actually denies a read, a `chmod 555` directory, and a dangling symlink. A skipped case asserted nothing, so the suite prints how many it skipped alongside the pass. The same workflow runs `./demo/setup.sh`, calls the hook it installs the way the demo's `settings.json` calls it, and runs `shellcheck` on the Linux leg. See [`.github/workflows/tests.yml`](.github/workflows/tests.yml).
 
 ## License
 
