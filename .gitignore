@@ -1,2 +1,7 @@
 .DS_Store
 *.log
+
+# demo/setup.sh copies these in from the repo; they are not a second source.
+demo/homelab/.claude/hooks/
+demo/homelab/.claude/skills/
+!demo/homelab/logs/*.log

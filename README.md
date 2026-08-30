@@ -1,5 +1,11 @@
 # persistent-handoff
 
+![demo](demo.gif)
+
+`/clear` wipes the context, the SessionStart hook puts the handoff back, and the next question is answered from where the work stands.
+
+Try it: `./demo/setup.sh && cd demo/homelab && claude`, accept the trust prompt (the demo ships a project hook, and the prompt preselects exit), then ask `where were we?`.
+
 A handoff file that outlives the session that wrote it. Your agent keeps one single file, always the same one: updated at milestones, read back automatically at every session start, deleted when nothing is left in flight.
 
 This is for agents that keep running: a personal assistant that has been up for six months, a fleet of Claude Code sessions in tmux, a daemon that wakes on a cron. Their context dies often, rarely with a warning: compaction, a crash, a nightly restart. The next session needs the state of the work, not a summary of a dead conversation.

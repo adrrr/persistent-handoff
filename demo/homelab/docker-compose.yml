@@ -1,0 +1,14 @@
+services:
+  caddy:
+    image: caddy:2
+    ports: ["80:80", "443:443"]
+    volumes: ["./Caddyfile:/etc/caddy/Caddyfile"]
+
+  jellyfin:
+    image: jellyfin/jellyfin:10.9
+    volumes: ["/mnt/nas/media:/media:ro"]
+
+  restic:
+    image: restic/restic:0.16
+    entrypoint: ["/scripts/restic-nightly.sh"]
+    volumes: ["./scripts:/scripts:ro", "/mnt/nas/backup:/repo"]
