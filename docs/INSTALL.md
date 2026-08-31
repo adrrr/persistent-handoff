@@ -1,10 +1,6 @@
 # Installing by hand
 
-The plugin install in the [README](../README.md#install) is one command and wires the hook for you. This page is the same result without plugins: copy two files, add one entry to `settings.json`.
-
-## Plugin commands
-
-Inside a running session, `/plugin marketplace add adrrr/persistent-handoff` then `/plugin install persistent-handoff@persistent-handoff` do the same as the README command. Start a new session and the skill and the hook are live. `claude plugin uninstall persistent-handoff@persistent-handoff` removes the plugin, `claude plugin marketplace remove persistent-handoff` drops the marketplace entry.
+The plugin install in the [README](../README.md#install) is one command and wires the hook for you. Below, the same result without plugins: copy two files, add one entry to `settings.json`. The plugin's in-session and uninstall commands are at the end.
 
 ## Claude Code version
 
@@ -60,3 +56,7 @@ On native Windows, Claude Code runs a `command` hook through Git Bash when [Git 
 ## Upgrading from 0.1.0
 
 The derived filename gained a digest, so the hook won't find a handoff written by 0.1.0 and nothing warns you. The [0.2.0 changelog entry](../CHANGELOG.md#upgrading-from-010) says what to rename.
+
+## Plugin commands
+
+Inside a running session, `/plugin marketplace add adrrr/persistent-handoff` then `/plugin install persistent-handoff@persistent-handoff` do the same as the README command. Start a new session and the skill and the hook are live. `claude plugin uninstall persistent-handoff@persistent-handoff` removes the plugin, `claude plugin marketplace remove persistent-handoff` drops the marketplace entry.

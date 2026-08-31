@@ -11,7 +11,7 @@ Your agent starts every session knowing where the work stands. It keeps one hand
 
 I run eight Claude Code sessions in tmux. A cron restarts the idle ones every night, and they used to wake up blank. Some now restart themselves when their context gets heavy. They update the handoff, kill their own tmux session, and the new one picks up from the file.
 
-It's for agents that keep running, an assistant up for six months or a daemon on a cron. They get their messages through `claude --channels` (Telegram, Discord, iMessage) or Remote Control from the Claude app, so a restart, a crash or a compact on the machine goes unnoticed on your side. Without the handoff, your next message is you explaining what it was doing. Nothing in the plugin depends on tmux or channels.
+It's for agents that keep running, an assistant up for six months or a daemon on a cron. They get their messages through `claude --channels` (Telegram, Discord, iMessage…) or Remote Control from the Claude app, so a restart, a crash or a compact on the machine goes unnoticed on your side. Without the handoff, your next message is you explaining what it was doing. Nothing in the plugin depends on tmux or channels.
 
 [Example](#what-one-looks-like) · [Install](#install) · [Try it](#try-it) · [Contract](#the-contract) · [FAQ](#faq) · [Related](#related)
 
@@ -57,6 +57,8 @@ The repo is its own plugin marketplace, so that one command adds it, installs th
 
 ## Try it
 
+The demo is a fictional homelab project with a real handoff in it. Clone it, install the hook, talk to the agent:
+
 ```bash
 git clone https://github.com/adrrr/persistent-handoff && cd persistent-handoff
 ./demo/setup.sh && cd demo/homelab
@@ -82,13 +84,13 @@ An agent not tied to one directory pins `PERSISTENT_HANDOFF_FILE` to an absolute
 
 ## FAQ
 
-**Why not just use `/compact`?** The compaction summary dies with the session that holds it. The file survives a crash, a `kill -9` and a reboot. Compaction keeps what the model judged worth keeping, the handoff keeps what you decided matters. Use both.
+**Why not just use `/compact`?** The compaction summary dies with the session that holds it. The file survives a crash, a `kill -9` and a reboot, none of which give the model a chance to summarize anything. Compaction keeps what the model judged worth keeping. The handoff keeps what you decided matters. Use both.
 
 **What happens after a compact or a resume?** The hook fires there too, about 500 tokens, so the handoff is present whatever the summary kept. The preamble says your context wins for what you did in this session and the file for everything else. If they disagree, update the file. Repeated resumes don't stack copies ([`docs/REFERENCE.md`](docs/REFERENCE.md#repeated-resumes-do-not-stack-copies)).
 
 **Why delete the file when it's empty?** Every session start reads it. A file that's always there, half stale, teaches every new session to skim it. If it exists, something is in flight. An agent whose work never ends prunes every update instead.
 
-**Why not just keep this in CLAUDE.md or the agent's memory?** Different lifetimes. CLAUDE.md and memory hold what stays true, mechanisms, commands, preferences. The handoff holds what's in flight and gets deleted when it lands.
+**Why not just keep this in CLAUDE.md or the agent's memory?** Different lifetimes. CLAUDE.md and memory hold mechanisms, commands and preferences. The handoff holds what's in flight, and gets deleted when it lands.
 
 **My agent is a coding session I close at the end of the day. Do I want this?** Probably not. Persistence buys nothing when the agent dies on purpose after one task. Use a disposable handoff instead.
 
@@ -98,7 +100,7 @@ An agent not tied to one directory pins `PERSISTENT_HANDOFF_FILE` to an absolute
 
 ## Related
 
-Many handoff skills exist for Claude Code. This one keeps a single file, rewritten in place, deleted when nothing is in flight. The others keep history.
+Many handoff skills exist for Claude Code. This one keeps a single file, rewritten in place and deleted when nothing is in flight. The others write a new snapshot each time.
 
 - [Matt Pocock's `handoff`](https://github.com/mattpocock/skills/blob/main/skills/productivity/handoff/SKILL.md) writes to the OS temp directory, once, on a manual invocation. Disposable, and the right tool for a session you'll close today. The disposable pattern and the idea of naming the skills the next agent should load come from [his skills repo](https://github.com/mattpocock/skills) (MIT). No code from it is reused here.
 - [Sting25/claude-code-handoff](https://github.com/Sting25/claude-code-handoff) is the closest on mechanism, one file per repo, loaded at startup, with a nudge when the context fills. It keeps the last five handoffs as history.
