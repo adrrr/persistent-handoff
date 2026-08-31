@@ -38,3 +38,9 @@ Claude Code caps a hook's output at 10,000 characters and injects a truncated pr
 ## Repeated resumes do not stack copies
 
 Claude Code drops a `SessionStart` `additionalContext` whose exact text is already in the transcript it reloaded. The two preambles are two different strings, so a session that started fresh and was then resumed carries both, and every resume after that is deduplicated for as long as the file does not change. That is read out of the 2.1.251 binary and documented nowhere, so take it as an observation rather than a contract.
+
+## The handoff is input the agent acts on
+
+The hook feeds the handoff straight into a fresh session as context, and the file tells that session what to do next. Treat it as executable input, and read [`hooks/session-start-handoff.sh`](../hooks/session-start-handoff.sh) before you install it. That's fine in `~/.claude/handoffs`, which only you write to. A handoff committed to a repo means anyone who can push there can write into your agent's context, so keep that to repos whose writers you trust. The demo's trust prompt preselects the option that exits, because the demo carries a project hook.
+
+Claude Code treats anything under `.claude/` as sensitive, so a session set to ask will ask you before the skill writes `.claude/handoff.md`. The GIF ran in auto mode, which allowed the write and printed that it had.

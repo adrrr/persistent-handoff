@@ -2,6 +2,12 @@
 
 The plugin install in the [README](../README.md#install) is one command and wires the hook for you. This is the same result without plugins: copy two files, add one entry to `settings.json`.
 
+## Claude Code version
+
+The plugin needs Claude Code 2.1.69 or newer. It's developed and tested on 2.1.251. `${CLAUDE_SKILL_DIR}`, which the skill uses to name the hook, landed in 2.1.69. Before 2.1.214 a fork reports `resume`, which takes the same preamble, so nothing else changes.
+
+The hook needs `bash` on `PATH`. It uses no BSD-only flags and `jq` is optional, but the shebang is `bash`, not `sh`, so a container image without bash won't run the hook at all.
+
 ## Copy the skill and the hook
 
 ```bash
