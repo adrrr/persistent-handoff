@@ -8,7 +8,7 @@ Inside a running session, `/plugin marketplace add adrrr/persistent-handoff` the
 
 ## Claude Code version
 
-The plugin needs Claude Code 2.1.69 or newer, and is tested on 2.1.251. `${CLAUDE_SKILL_DIR}`, which the skill uses to name the hook, landed in 2.1.69. Before 2.1.214 a fork reports `resume`, which takes the same preamble.
+The plugin needs Claude Code 2.1.69 or newer. It's developed and tested on 2.1.251. `${CLAUDE_SKILL_DIR}`, which the skill uses to name the hook, landed in 2.1.69. Before 2.1.214 a fork reports `resume`, which takes the same preamble.
 
 The hook needs `bash` on `PATH`. It uses no BSD-only flags and `jq` is optional. The shebang is `bash`, not `sh`, so a container image without bash won't run it.
 
