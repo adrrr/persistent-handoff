@@ -70,7 +70,7 @@ jobs:
           rc=0
           git grep -Il $'\xe2\x80\x94' -- . || rc=$?
           if [ "$rc" -eq 0 ]; then
-            echo "U+2014 in the files above" >&2
+            echo "::error::Em dash (U+2014) in the files listed above. Use a comma, a parenthesis or a new sentence."
             exit 1
           fi
           [ "$rc" -eq 1 ]

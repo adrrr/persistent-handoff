@@ -35,7 +35,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   handoff).
 - Skill: the rewrite rule covers a session with no shell. The write tool with
   the full content is fine, the temporary file moved over the handoff stays the
-  way when a shell exists.
+  way to go when a shell exists.
 - `CONTRIBUTING.md`: the em-dash bullet is removed.
 - `CHANGELOG.md`: every entry rewritten as bullets, facts unchanged.
 
@@ -68,7 +68,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   that `main` is the release channel, since the marketplace clones the default
   branch.
 - `tests/manifests.sh` case 14 resolves the `${CLAUDE_SKILL_DIR}` path SKILL.md
-  hands the agent and asserts an executable file is there. 14 cases.
+  hands the agent and asserts an executable file is there. Claude Code expands
+  the variable when it loads the skill, so a wrong path used to fail only on the
+  user's machine. 14 cases.
 - `tests/hook.sh` case 37 pins the `--path` warning below. 37 cases.
 - CI runs `./demo/setup.sh`, then calls the hook it installs the way the demo's
   `settings.json` calls it.
@@ -132,9 +134,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `tests/manifests.sh` is 13. Cases 5, 12 and 13 hold `hooks/hooks.json`, the
   demo's `settings.json` and the README's hand-install snippet to a single
   matcher-less `SessionStart` entry.
-- README: the passages that re-explained the contract in prose are removed.
-  Install, the contract, the example, the file's location, the cap, the FAQ and
-  the tests stay.
+- README: about a hundred lines removed, the passages that re-explained the
+  contract in prose. Install, the contract, the example, the file's location,
+  the cap, the FAQ and the tests stay.
 - A release badge next to the tests badge.
 
 ## [0.2.0] - 2026-08-30

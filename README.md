@@ -9,7 +9,7 @@ Your agent starts every session knowing where the work stands. It keeps one hand
 
 *The agent rewrites its handoff, exits, and a new session answers `where were we?` from that file. The one `Read` on screen is the log the handoff points at.*
 
-I run eight Claude Code sessions in tmux, and a cron restarts the idle ones every night. They used to wake up with no idea what they'd spent the previous day on. Some of them now restart themselves when their context gets heavy. They update the handoff, kill their own tmux session, and the new session picks up from the file.
+I run eight Claude Code sessions in tmux, and a cron restarts the idle ones every night. They used to wake up with no idea what they'd spent the previous day on. Some of them now restart themselves when their context gets heavy, by updating the handoff and killing their own tmux session. The new session picks up from the file.
 
 It's for agents that keep running, an assistant that's been up for six months or a daemon that wakes on a cron. They get their messages from wherever you are, through `claude --channels` (Telegram, Discord, iMessage…) or Remote Control from the Claude app. On your side, a restart, a crash or a compact on the machine goes unnoticed. You send the next message and the agent picks up where it left off. Without the handoff, that message is you explaining what it was doing. Nothing in the plugin depends on tmux or channels, it just started there.
 
@@ -55,7 +55,7 @@ The repo is its own plugin marketplace. One command adds it and installs the plu
 claude plugin marketplace add adrrr/persistent-handoff && claude plugin install persistent-handoff@persistent-handoff
 ```
 
-Needs Claude Code 2.1.69 or newer (tested on 2.1.251) and `bash` on `PATH`. Windows: WSL, or [Git for Windows](https://git-scm.com/downloads/win) installed first. Why, and the version details: [`docs/INSTALL.md`](docs/INSTALL.md).
+Needs Claude Code 2.1.69 or newer (tested on 2.1.251) and `bash` on `PATH`. [Windows](docs/INSTALL.md#windows): WSL, or [Git for Windows](https://git-scm.com/downloads/win) installed first. Why, and the version details: [`docs/INSTALL.md`](docs/INSTALL.md#claude-code-version).
 
 Inside a running session, `/plugin marketplace add adrrr/persistent-handoff` then `/plugin install persistent-handoff@persistent-handoff` do the same thing. Start a new session and both the skill and the hook are live. Remove it with `claude plugin uninstall persistent-handoff@persistent-handoff`, then `claude plugin marketplace remove persistent-handoff` to drop the marketplace entry. Without plugins, or if you already installed it by hand, see [`docs/INSTALL.md`](docs/INSTALL.md). If you're upgrading from 0.1.0, the derived filename gained a digest, and the [0.2.0 changelog entry](CHANGELOG.md#upgrading-from-010) says what to rename.
 
@@ -71,7 +71,7 @@ git clone https://github.com/adrrr/persistent-handoff && cd persistent-handoff
 claude --model claude-sonnet-5 --setting-sources project,local --strict-mcp-config --tools Read,Glob,Grep,Skill,Write
 ```
 
-Those are the flags the GIF used, they load only the demo's settings and no MCP server, and `Write` isn't scoped to one file, so keep the session to the demo project. Claude Code will ask you to trust the folder. The demo carries a project hook, and the handoff it feeds is input the agent acts on, so read [`hooks/session-start-handoff.sh`](hooks/session-start-handoff.sh) if you want to know what runs. Then say: `Keep the daily snapshots for the year, that's decided. I'm going to restart you in a minute.` The skill fires and rewrites `.claude/handoff.md`. `/exit`, run the same command, ask `where were we?`. That answer comes from the hook, not from a file the agent opened. `git checkout -- demo/homelab/.claude/handoff.md` resets it.
+Those are the flags the GIF used. They load only the demo's settings and no MCP server. `Write` isn't scoped to one file, so keep the session to the demo project. Claude Code will ask you to trust the folder. The demo carries a project hook, and the handoff it feeds is input the agent acts on, so read [`hooks/session-start-handoff.sh`](hooks/session-start-handoff.sh) first. The trust boundary that comes with that is in [`docs/REFERENCE.md`](docs/REFERENCE.md#the-handoff-is-input-the-agent-acts-on). Then say: `Keep the daily snapshots for the year, that's decided. I'm going to restart you in a minute.` The skill fires and rewrites `.claude/handoff.md`. `/exit`, run the same command, ask `where were we?`. That answer comes from the hook, not from a file the agent opened. `git checkout -- demo/homelab/.claude/handoff.md` resets it.
 
 ## The contract
 
@@ -111,7 +111,7 @@ An agent that isn't tied to one directory pins `PERSISTENT_HANDOFF_FILE` to an a
 There are many handoff skills for Claude Code. What's specific here is the contract. One canonical file, rewritten in place, deleted when nothing is in flight. The others keep history.
 
 - [Matt Pocock's `handoff`](https://github.com/mattpocock/skills/blob/main/skills/productivity/handoff/SKILL.md) writes to the OS temp directory, once, on a manual invocation. Disposable by design, and the right tool for a session you'll close today.
-- [Sting25/claude-code-handoff](https://github.com/Sting25/claude-code-handoff) is the closest on mechanism, one file per repo, loaded at startup, with a nudge when the context fills. It keeps the last five handoffs as history, this one keeps a single current state.
+- [Sting25/claude-code-handoff](https://github.com/Sting25/claude-code-handoff) is the closest on mechanism, one file per repo, loaded at startup, with a nudge when the context fills. It keeps the last five handoffs as history. This one keeps a single current state.
 - [blader/baton](https://github.com/blader/baton) has you drop and grab a baton by hand, into timestamped files under `.baton/`, and works with Codex as well as Claude Code. Manual on both ends, one file per session.
 - [REMvisual/claude-handoff](https://github.com/REMvisual/claude-handoff) mines the conversation on a `/handoff` command and chains the results in sequence. You paste the result into the next session.
 - [rupaut98/unforget](https://github.com/rupaut98/unforget) hooks `SessionStart` on compaction only and digests the transcript JSONL itself. It's the opposite mechanism, extracted automatically instead of written by the agent.
