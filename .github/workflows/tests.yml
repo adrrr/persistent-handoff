@@ -61,16 +61,16 @@ jobs:
           shellcheck --version
           shellcheck -S warning hooks/*.sh demo/setup.sh tests/*.sh
 
-      # Tracked text files only (-I skips demo.gif). The pattern is the UTF-8
-      # bytes of U+2014, so this file does not match itself.
-      - name: Prose
+      # Tracked text files only (-I skips demo.gif). ASCII punctuation: no em or
+      # en dash, no curly quotes. UTF-8 bytes, so this file does not match itself.
+      - name: Typography
         if: runner.os == 'Linux'
         shell: bash
         run: |
           rc=0
-          git grep -Il $'\xe2\x80\x94' -- . || rc=$?
+          git grep -Il -e $'\xe2\x80\x94' -e $'\xe2\x80\x93' -e $'\xe2\x80\x9c' -e $'\xe2\x80\x9d' -e $'\xe2\x80\x98' -e $'\xe2\x80\x99' -- . || rc=$?
           if [ "$rc" -eq 0 ]; then
-            echo "::error::Em dash (U+2014) in the files listed above. Use a comma, a parenthesis or a new sentence."
+            echo "::error::Non-ASCII dash or quote in the files listed above. Use -, a comma, a new sentence, or straight quotes."
             exit 1
           fi
           [ "$rc" -eq 1 ]

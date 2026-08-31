@@ -7,14 +7,14 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- `.github/workflows/tests.yml`: a `Prose` step on the Linux leg fails when any
-  tracked text file contains U+2014 (`git grep -I`).
+- `.github/workflows/tests.yml`: a `Typography` step on the Linux leg fails when a
+  tracked text file contains a non-ASCII dash or quote (`git grep -I`).
 
 ### Changed
 
 - README: the example (`## What one looks like`) comes before Install, and the
   anchor row starts with a link to it.
-- README: voice pass on the whole file. Requirements and Try it are shorter. The
+- README: reworded throughout. Requirements and Try it are shorter. The
   facts they lost are in `docs/INSTALL.md` (version floor, `bash` shebang) and
   `docs/REFERENCE.md` (the handoff as executable input, the `.claude/` write
   prompt). `SECURITY.md` links there instead of at Try it.
@@ -36,8 +36,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Skill: the rewrite rule covers a session with no shell. The write tool with
   the full content is fine, the temporary file moved over the handoff stays the
   way to go when a shell exists.
-- `CONTRIBUTING.md`: the em-dash bullet is removed.
-- `CHANGELOG.md`: every entry rewritten as bullets, facts unchanged.
+- `CONTRIBUTING.md`: one bullet fewer, the punctuation rule lives in CI.
+- `CHANGELOG.md`: entries condensed to bullets, same versions, dates and numbers.
 - README, `docs/INSTALL.md`, `docs/REFERENCE.md`: shortened, no fact removed.
   README 129 lines down to 115, REFERENCE 46 to 45, INSTALL 58 to 62 (the
   in-session and uninstall commands moved there from the README, under
