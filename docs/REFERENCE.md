@@ -6,7 +6,9 @@ The short answers in the README, in full. All of it is behaviour of [`hooks/sess
 
 By default the hook names the file after the working directory relative to your home, separators turned into dashes, plus a short digest of the full path. An agent in `/home/alice/work/acme/api` reads `~/.claude/handoffs/work-acme-api-32817b.md`.
 
-The dashed part lets you read the directory off the filename. The six hex characters separate what it merges, `~/my project` and `~/my-project`, or `~/abs/var/tmp/x` and `/var/tmp/x`. The digest covers the absolute path, so yours won't match the example. Twenty-four bits is not a uniqueness proof, it makes a clash a coincidence. A `cksum` collision can also be constructed on purpose, and a handoff is executable input. Pin `PERSISTENT_HANDOFF_FILE` if you need a guarantee. The digest needs `cksum`, which is POSIX and present everywhere this is tested. Without it the name falls back to the dashed part and the hook says so on stderr.
+The dashed part lets you read the directory off the filename. The six hex characters separate what it merges, `~/my project` and `~/my-project`, or `~/abs/var/tmp/x` and `/var/tmp/x`. The digest covers the absolute path, so yours won't match the example.
+
+Twenty-four bits is not a uniqueness proof, it makes a clash a coincidence. A `cksum` collision can also be constructed on purpose, and a handoff is executable input. Pin `PERSISTENT_HANDOFF_FILE` if you need a guarantee. The digest needs `cksum`, which is POSIX and present everywhere this is tested. Without it the name falls back to the dashed part and the hook says so on stderr.
 
 `session-start-handoff.sh --path` prints the name for the directory you run it in. The skill uses it before its first write. After that, the hook names the path in the line it injects above the content.
 

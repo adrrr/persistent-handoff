@@ -45,7 +45,9 @@ Do not try to compute that digest yourself. When a handoff already exists, the h
 "${CLAUDE_SKILL_DIR}/../../hooks/session-start-handoff.sh" --path
 ```
 
-It prints the path for the current directory, creates the directory it names, and exits. The hook ships beside this skill, two directories up from this file, and that is true of both install layouts: as a plugin the skill sits at `<plugin>/skills/persistent-handoff/`, installed by hand at `~/.claude/skills/persistent-handoff/`. Claude Code replaces `${CLAUDE_SKILL_DIR}` when it loads this file. If you ever see it unexpanded, resolve `../../hooks/session-start-handoff.sh` yourself against the directory you read this skill from. Do not go hunting for the hook by name: a plugin cache keeps old versions alongside the current one, and the first match is usually the wrong one.
+It prints the path for the current directory, creates the directory it names, and exits.
+
+The hook ships beside this skill, two directories up from this file, and that is true of both install layouts: as a plugin the skill sits at `<plugin>/skills/persistent-handoff/`, installed by hand at `~/.claude/skills/persistent-handoff/`. Claude Code replaces `${CLAUDE_SKILL_DIR}` when it loads this file. If you ever see it unexpanded, resolve `../../hooks/session-start-handoff.sh` yourself against the directory you read this skill from. Do not go hunting for the hook by name: a plugin cache keeps old versions alongside the current one, and the first match is usually the wrong one.
 
 That answer is only correct for an agent whose path is not pinned. If a human set `PERSISTENT_HANDOFF_FILE` in the hook's own command rather than for the whole session, the hook reads the pinned path and `--path` does not know it. The line the hook injects above an existing handoff is the authority whenever the two could disagree. If there is no handoff yet and you have any reason to think the path was pinned, ask the human instead of writing.
 

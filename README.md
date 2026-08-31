@@ -53,7 +53,9 @@ The demo's handoff. `./demo/setup.sh` puts it in a project you can open. 300 to 
 claude plugin marketplace add adrrr/persistent-handoff && claude plugin install persistent-handoff@persistent-handoff
 ```
 
-The repo is its own plugin marketplace, so that one command adds it, installs the plugin and wires the `SessionStart` hook. Needs Claude Code 2.1.69 or newer (tested on 2.1.251, [details](docs/INSTALL.md#claude-code-version)) and `bash` on `PATH`. [Windows](docs/INSTALL.md#windows): WSL, or [Git for Windows](https://git-scm.com/downloads/win) installed first. [`docs/INSTALL.md`](docs/INSTALL.md) has the in-session commands, uninstall, the hand install and the 0.1.0 upgrade note. Nothing happens until a handoff exists, the hook is silent when the file is missing or blank.
+The repo is its own plugin marketplace, so that one command adds it, installs the plugin and wires the `SessionStart` hook.
+
+Needs Claude Code 2.1.69 or newer (tested on 2.1.251, [details](docs/INSTALL.md#claude-code-version)) and `bash` on `PATH`. [Windows](docs/INSTALL.md#windows): WSL, or [Git for Windows](https://git-scm.com/downloads/win) installed first. [`docs/INSTALL.md`](docs/INSTALL.md) has the in-session commands, uninstall, the hand install and the 0.1.0 upgrade note. Nothing happens until a handoff exists, the hook is silent when the file is missing or blank.
 
 ## Try it
 
@@ -65,7 +67,11 @@ git clone https://github.com/adrrr/persistent-handoff && cd persistent-handoff
 claude --model claude-sonnet-5 --setting-sources project,local --strict-mcp-config --tools Read,Glob,Grep,Skill,Write
 ```
 
-Those are the flags the GIF used. They load only the demo's settings and no MCP server. `Write` isn't scoped to one file, so keep the session to the demo project. Claude Code asks you to trust the folder. The demo carries a project hook and the handoff it feeds is input the agent acts on, so read [`hooks/session-start-handoff.sh`](hooks/session-start-handoff.sh) first ([trust boundary](docs/REFERENCE.md#the-handoff-is-input-the-agent-acts-on)). Say `Keep the daily snapshots for the year, that's decided. I'm going to restart you in a minute.` The skill rewrites `.claude/handoff.md`. `/exit`, run the same command, ask `where were we?`. The answer comes from the hook, not from a file the agent opened. `git checkout -- demo/homelab/.claude/handoff.md` resets it.
+Those are the flags the GIF used. They load only the demo's settings and no MCP server. `Write` isn't scoped to one file, so keep the session to the demo project.
+
+Claude Code asks you to trust the folder. The demo carries a project hook and the handoff it feeds is input the agent acts on, so read [`hooks/session-start-handoff.sh`](hooks/session-start-handoff.sh) first ([trust boundary](docs/REFERENCE.md#the-handoff-is-input-the-agent-acts-on)).
+
+Say `Keep the daily snapshots for the year, that's decided. I'm going to restart you in a minute.` The skill rewrites `.claude/handoff.md`. `/exit`, run the same command, ask `where were we?`. The answer comes from the hook, not from a file the agent opened. `git checkout -- demo/homelab/.claude/handoff.md` resets it.
 
 ## The contract
 
