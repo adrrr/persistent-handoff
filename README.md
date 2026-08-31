@@ -110,7 +110,9 @@ Many handoff skills exist for Claude Code. This one keeps a single file, rewritt
 
 ## Tests
 
-`bash tests/hook.sh` is 37 cases on the hook's failure modes and its two preambles. `bash tests/manifests.sh` is 14 cases pinning the plugin manifests and holding the `SessionStart` block to one shape in its three copies, the plugin, the demo and the hand-install snippet in [`docs/INSTALL.md`](docs/INSTALL.md). Both run on `ubuntu-latest`, `macos-latest` and `windows-latest`, on every pull request, every push to `main` and on demand. 51 assertions per OS, minus three on Windows where NTFS won't stage a `chmod 000` that denies a read, a `chmod 555` directory or a dangling symlink. The suite prints how many it skipped. The same workflow runs `./demo/setup.sh`, calls the installed hook the way the demo's `settings.json` does, and runs `shellcheck` on the Linux leg. See [`.github/workflows/tests.yml`](.github/workflows/tests.yml).
+`bash tests/hook.sh`: 37 cases on the hook's failure modes and its two preambles. `bash tests/manifests.sh`: 14 cases pinning the plugin manifests and holding the `SessionStart` block to one shape in its three copies (plugin, demo, hand-install snippet in [`docs/INSTALL.md`](docs/INSTALL.md)).
+
+[CI](.github/workflows/tests.yml) runs both on Ubuntu, macOS and Windows, on every pull request, every push to `main` and on demand. 51 assertions per OS, minus three on Windows where NTFS won't stage a `chmod 000` that denies a read, a `chmod 555` directory or a dangling symlink (the suite prints how many it skipped). The same workflow runs `./demo/setup.sh`, calls the installed hook the way the demo's `settings.json` does, and runs `shellcheck` on the Linux leg.
 
 ## License
 
