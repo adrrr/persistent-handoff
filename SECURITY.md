@@ -4,4 +4,4 @@ The handoff is executable input. The hook feeds it into a fresh session as conte
 
 Report a problem by opening an issue: https://github.com/adrrr/persistent-handoff/issues.
 
-There is no private channel. For something you would rather not describe in the open, open an issue saying only that much and I will find another way to talk.
+There is no private channel. If you'd rather not describe it in the open, open an issue saying only that and I'll find another way to talk.

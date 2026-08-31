@@ -38,6 +38,11 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   way to go when a shell exists.
 - `CONTRIBUTING.md`: the em-dash bullet is removed.
 - `CHANGELOG.md`: every entry rewritten as bullets, facts unchanged.
+- README, `docs/INSTALL.md`, `docs/REFERENCE.md`: shortened, no fact removed.
+  README 129 lines down to 115, REFERENCE 46 to 45, INSTALL 58 to 62 (the
+  in-session and uninstall commands moved there from the README, under
+  `## Plugin commands`). `CONTRIBUTING.md`, `RELEASING.md`, `SECURITY.md` and
+  the skill reworded in places, rules unchanged.
 
 ## [0.2.3] - 2026-08-30
 
