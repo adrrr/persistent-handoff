@@ -61,6 +61,17 @@ jobs:
           shellcheck --version
           shellcheck -S warning hooks/*.sh demo/setup.sh tests/*.sh
 
+      # Tracked text files only (-I skips demo.gif). The pattern is the UTF-8
+      # bytes of U+2014, so this file does not match itself.
+      - name: Prose
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          if git grep -Il $'\xe2\x80\x94' -- .; then
+            echo "U+2014 in the files above" >&2
+            exit 1
+          fi
+
       - name: Hook
         shell: bash
         run: bash tests/hook.sh
