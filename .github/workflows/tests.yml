@@ -67,10 +67,13 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: |
-          if git grep -Il $'\xe2\x80\x94' -- .; then
+          rc=0
+          git grep -Il $'\xe2\x80\x94' -- . || rc=$?
+          if [ "$rc" -eq 0 ]; then
             echo "U+2014 in the files above" >&2
             exit 1
           fi
+          [ "$rc" -eq 1 ]
 
       - name: Hook
         shell: bash

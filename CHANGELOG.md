@@ -125,7 +125,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `startup` preamble.
 - The hook still runs on all five sources. Narrowing it to `startup|clear` was
   tried and dropped. A full compaction keeps no message verbatim, so the handoff
-  would only survive inside the summary. Presence costs about 500 tokens.
+  would only survive inside the summary, and a second compaction would
+  summarize the first. Presence costs about 500 tokens.
 - `tests/hook.sh` is 36 cases. The four new ones pin the preamble for each
   source, for an absent and an unknown source, and for the no-`jq` fallback.
   `tests/manifests.sh` is 13. Cases 5, 12 and 13 hold `hooks/hooks.json`, the
