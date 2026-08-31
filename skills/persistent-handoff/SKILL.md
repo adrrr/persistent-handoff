@@ -5,20 +5,20 @@ description: 'Use when an agent''s work must survive the death of its context, o
 
 # Persistent handoff
 
-An agent that runs for weeks loses its context many times: restarts, compacts, crashes, machine reboots. The handoff is the one file that survives those deaths. It holds where the work stands, what to do next, and what a fresh session would otherwise have to relearn the hard way.
+An agent that runs for weeks loses its context at every restart, compact, crash and reboot. The handoff is the one file that survives. It holds where the work stands, what to do next, and what a fresh session would otherwise relearn.
 
-An agent has one handoff file, always the same one. It is a state, not a journal.
+An agent has one handoff file, always the same one. It holds the current state and no history.
 
 ## Quick reference
 
 | Rule | In practice |
 |---|---|
 | The same file, always | Rewrite it at the same path. Never a second file, never a dated copy |
-| Read at every session start | The `SessionStart` hook injects it; you rarely open it to read |
+| Read at every session start | The `SessionStart` hook injects it, you rarely open it to read |
 | Written at milestones | Decision, PR, conclusion, blocker, unanswered question |
 | State, not narrative | Where things stand, not how they got there |
 | 300-500 tokens | Below: vague. Above: journal |
-| Prune on every update | Resolved items go; the file shrinks as work completes |
+| Prune on every update | Resolved items go, the file shrinks as work completes |
 | Empty means delete | No file is a valid state: nothing in flight |
 
 ## When to write
@@ -45,9 +45,9 @@ Do not try to compute that digest yourself. When a handoff already exists, the h
 "${CLAUDE_SKILL_DIR}/../../hooks/session-start-handoff.sh" --path
 ```
 
-It prints the path for the current directory, creates the directory it names, and exits. The hook ships beside this skill, two directories up from this file, and that is true of both install layouts: as a plugin the skill sits at `<plugin>/skills/persistent-handoff/`, installed by hand at `~/.claude/skills/persistent-handoff/`. Claude Code replaces `${CLAUDE_SKILL_DIR}` when it loads this file; if you ever see it unexpanded, resolve `../../hooks/session-start-handoff.sh` yourself against the directory you read this skill from. Do not go hunting for the hook by name: a plugin cache keeps old versions alongside the current one, and the first match is usually the wrong one.
+It prints the path for the current directory, creates the directory it names, and exits. The hook ships beside this skill, two directories up from this file, and that is true of both install layouts: as a plugin the skill sits at `<plugin>/skills/persistent-handoff/`, installed by hand at `~/.claude/skills/persistent-handoff/`. Claude Code replaces `${CLAUDE_SKILL_DIR}` when it loads this file. If you ever see it unexpanded, resolve `../../hooks/session-start-handoff.sh` yourself against the directory you read this skill from. Do not go hunting for the hook by name: a plugin cache keeps old versions alongside the current one, and the first match is usually the wrong one.
 
-That answer is only correct for an agent whose path is not pinned. If a human set `PERSISTENT_HANDOFF_FILE` in the hook's own command rather than for the whole session, the hook reads the pinned path and `--path` does not know it. The line the hook injects above an existing handoff is the authority whenever the two could disagree; if there is no handoff yet and you have any reason to think the path was pinned, ask the human instead of writing.
+That answer is only correct for an agent whose path is not pinned. If a human set `PERSISTENT_HANDOFF_FILE` in the hook's own command rather than for the whole session, the hook reads the pinned path and `--path` does not know it. The line the hook injects above an existing handoff is the authority whenever the two could disagree. If there is no handoff yet and you have any reason to think the path was pinned, ask the human instead of writing.
 
 A handoff at a path the hook does not read is never read by anyone, and it fails silently: the hook goes on reporting that nothing is in flight.
 
@@ -90,11 +90,11 @@ The shape, filled in with whatever the work actually is:
 
 ## Clean as you advance
 
-Every update deletes what is resolved or stale. A file that only grows is a journal, and nobody reads a journal at boot.
+Every update deletes what is resolved or stale. A file that only grows becomes a journal, and the next session skips it.
 
 Rewrite it at the same path, the whole file every time. With a shell, write the new content to `<handoff>.tmp` in the same directory, then `mv` it over the handoff. A session starting mid-write then never reads a truncated file, and nothing in a truncated handoff says it is one. Without a shell, the write tool with the full content is fine. Never patch it with an edit tool, that is how stale lines survive.
 
-Emptiness is legitimate. If an update empties the handoff, delete the file. An empty handoff still costs context at every session start and tells that session nothing; its absence already says it: nothing is in flight.
+If an update empties the handoff, delete the file. An empty handoff costs context at every session start and says nothing. Its absence already says nothing is in flight.
 
 The same rule applies before writing the first one. A milestone with nothing in flight writes no handoff.
 
@@ -123,6 +123,6 @@ After a compact, a resume or a fork, the hook injects the handoff under a preamb
 
 ## What this skill does not cover
 
-Restarting the agent, scheduling, and process supervision are someone else's job. This skill only makes sure that whatever kills the session does not take the state with it.
+This skill does not restart the agent, schedule it or supervise the process. It only keeps the state alive across whatever kills the session.
 
 If your agent is a coding session you will close today, you want a disposable handoff instead. A file in a temp directory, written once, read once. Matt Pocock's `handoff` skill does that well.
