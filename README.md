@@ -11,7 +11,7 @@ Your agent starts every session knowing where the work stands. It keeps one hand
 
 I run eight Claude Code sessions in tmux. A cron restarts the idle ones every night, and they used to wake up blank. Some now restart themselves when their context gets heavy. They update the handoff, kill their own tmux session, and the new one picks up from the file.
 
-It's for agents that keep running, an assistant up for six months or a daemon on a cron. They get their messages through `claude --channels` (Telegram, Discord, iMessage…) or Remote Control from the Claude app, so a restart, a crash or a compact on the machine goes unnoticed on your side. Without the handoff, your next message is you explaining what it was doing. Nothing in the plugin depends on tmux or channels.
+It's for agents that keep running, an assistant up for six months or a daemon on a cron. They get their messages through `claude --channels` (Telegram, Discord, iMessage…) or Remote Control from the Claude app, so a restart, a crash or a compact on the machine goes unnoticed on your side. Without the handoff, your next message is you explaining what it was doing. It's also for one plain session on a project you come back to every day: `/clear`, a compact and a crash kill the thread the same way, and the same file carries it. Nothing in the plugin depends on tmux or channels.
 
 [Example](#what-one-looks-like) · [Install](#install) · [Try it](#try-it) · [Contract](#the-contract) · [FAQ](#faq) · [Related](#related)
 
@@ -98,7 +98,7 @@ An agent not tied to one directory pins `PERSISTENT_HANDOFF_FILE` to an absolute
 
 **Why not just keep this in CLAUDE.md or the agent's memory?** Different lifetimes. CLAUDE.md and memory hold mechanisms, commands and preferences. The handoff holds what's in flight, and gets deleted when it lands.
 
-**My agent is a coding session I close at the end of the day. Do I want this?** Probably not. Persistence buys nothing when the agent dies on purpose after one task. Use a disposable handoff instead.
+**My agent is a coding session I close at the end of the day. Do I want this?** Depends what you reopen tomorrow. A one-off task you finish and never come back to: no, use a disposable handoff. The same project every morning: yes. `/clear` and the end of the day kill your thread the same way a nightly restart kills mine, and the file is what survives both.
 
 **I deleted the project. Is its handoff still there?** Yes. Nothing prunes `~/.claude/handoffs/`. The hook puts no date in the preamble, so date the content the way the example does.
 
