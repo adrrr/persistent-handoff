@@ -5,6 +5,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-09-05
+
 ### Added
 
 - `.github/workflows/tests.yml`: a `Typography` step on the Linux leg fails when a
@@ -38,6 +40,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   way to go when a shell exists.
 - `CONTRIBUTING.md`: one bullet fewer, the punctuation rule lives in CI.
 - `CHANGELOG.md`: entries condensed to bullets, same versions, dates and numbers.
+- README and skill: the single-session case is stated instead of waved off. The
+  intro names the project you come back to every day, the FAQ answer separates
+  the one-off task (disposable handoff) from the daily project (this plugin),
+  and the skill triggers on a planned `/clear`.
 - README, `docs/INSTALL.md`, `docs/REFERENCE.md`: shortened, no fact removed.
   README 129 lines down to 115, REFERENCE 46 to 45, INSTALL 58 to 62 (the
   in-session and uninstall commands moved there from the README, under
@@ -213,7 +219,8 @@ and stays silent. In each directory that has a handoff, run
   `tests/hook.sh`. Installed by hand, by copying two files and adding a
   `SessionStart` entry to `settings.json`.
 
-[Unreleased]: https://github.com/adrrr/persistent-handoff/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/adrrr/persistent-handoff/compare/v0.2.4...HEAD
+[0.2.4]: https://github.com/adrrr/persistent-handoff/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/adrrr/persistent-handoff/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/adrrr/persistent-handoff/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/adrrr/persistent-handoff/compare/v0.2.0...v0.2.1
