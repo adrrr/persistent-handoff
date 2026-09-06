@@ -136,6 +136,33 @@ else
   ko "14 (suffix=<$suffix> resolved=<$got> expected=<$want>)"
 fi
 
+# 15. The demo pins its handoff, and pins it outside `.claude/`. Claude Code
+# protects that directory ahead of any allow rule, so a demo that kept its
+# handoff there prompted the reader before the skill could rewrite it, on the one
+# run meant to show the skill rewriting it unprompted. Nothing in the command may
+# name that directory: the hook it calls used to live there too.
+cmd=$(jq -r '.hooks.SessionStart[0].hooks[0].command // empty' "$DEMO")
+case $cmd in
+  *'/.claude/'*) ko "15 (the demo command still names .claude/: <$cmd>)" ;;
+  *'PERSISTENT_HANDOFF_FILE="${CLAUDE_PROJECT_DIR}"/handoff.md'*)
+    [ -f "$ROOT/demo/homelab/handoff.md" ] \
+      && ok "15 demo pins its handoff outside .claude/" \
+      || ko "15 (demo/homelab/handoff.md is missing)" ;;
+  *) ko "15 (command=<$cmd>)" ;;
+esac
+
+# 16. REGRESSION: the demo's settings.json is committed and the hook it named was
+# gitignored, so a clone that had not run demo/setup.sh wired a SessionStart hook
+# to a file that does not exist. Claude Code ran it and got exit 127 at every
+# session start, on the repo's own demo. Run the command the way Claude Code
+# does, on the tree as cloned, and read the demo's handoff back out of it.
+DEMODIR=$ROOT/demo/homelab
+payload=$(printf '{"session_id":"t","cwd":"%s","hook_event_name":"SessionStart","source":"startup"}' "$DEMODIR")
+out=$(printf '%s' "$payload" | ( cd "$DEMODIR" && export CLAUDE_PROJECT_DIR="$DEMODIR" && eval "$cmd" ) 2>&1); rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q restic \
+  && ok "16 demo command runs on a bare clone and returns the handoff" \
+  || ko "16 (rc=$rc out=<$out>)"
+
 echo "---"
 [ "$fail" -eq 0 ] && echo "ALL TESTS PASS" || echo "SOME TESTS FAILED"
 exit "$fail"

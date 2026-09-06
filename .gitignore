@@ -1,7 +1,7 @@
 .DS_Store
 *.log
 
-# demo/setup.sh copies these in from the repo; they are not a second source.
-demo/homelab/.claude/hooks/
+# demo/setup.sh copies this in from the repo; it is not a second source. The
+# hook is not copied, the demo calls the one at the repo root.
 demo/homelab/.claude/skills/
 !demo/homelab/logs/*.log

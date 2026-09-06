@@ -84,17 +84,12 @@ jobs:
         run: bash tests/manifests.sh
 
       # demo/setup.sh is what the README's "Try it" section runs, and nothing
-      # ran it. Install it into demo/homelab, then call the hook the way the
-      # demo's own settings.json calls it, and check the handoff comes back.
-      # Last, because it writes into the working tree.
+      # ran it. Install the skill into demo/homelab and check it landed. The
+      # settings.json wiring is case 16 of tests/manifests.sh, which runs the
+      # command on the tree as cloned, before this step writes into it. Last,
+      # because it writes into the working tree.
       - name: Demo
         shell: bash
         run: |
           ./demo/setup.sh
-          test -x demo/homelab/.claude/hooks/session-start-handoff.sh
           test -f demo/homelab/.claude/skills/persistent-handoff/SKILL.md
-          payload=$(printf '{"session_id":"ci","cwd":"%s/demo/homelab","hook_event_name":"SessionStart","source":"startup"}' "$PWD")
-          out=$(printf '%s' "$payload" \
-            | PERSISTENT_HANDOFF_FILE="$PWD/demo/homelab/.claude/handoff.md" \
-              demo/homelab/.claude/hooks/session-start-handoff.sh)
-          printf '%s\n' "$out" | grep -q restic
