@@ -5,6 +5,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-06
+
 ### Changed
 
 - **Breaking.** The derived handoff path moved out of `~/.claude`. An agent in
