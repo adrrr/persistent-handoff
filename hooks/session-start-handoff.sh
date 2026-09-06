@@ -18,7 +18,8 @@
 #                            a slug (see below).
 #   XDG_STATE_HOME           where the derived path lives. Defaults to
 #                            ~/.local/state, so the handoff is
-#                            ~/.local/state/persistent-handoff/<slug>.md.
+#                            ~/.local/state/persistent-handoff/<slug>.md. A
+#                            relative value is ignored, as the XDG spec says.
 #
 # jq is used when available, both to read the payload and to escape the output.
 # Without it the script falls back to $PWD and to plain stdout, which Claude
@@ -61,6 +62,18 @@ payload=""
 home=${HOME:-$PWD}
 home=${home%/}   # a trailing slash would silently change every derived name
 
+# Same treatment for the other directory a derived name is built from. The XDG
+# spec says a relative value is invalid and must be ignored, and it matters more
+# here than in most programs: a relative handoff path resolves against the
+# process's own directory, which is not the cwd the payload names, so the hook
+# would answer --path with one file and read another, then go silent. Going
+# silent is what this hook does when nothing is in flight.
+state_home=${XDG_STATE_HOME:-}
+case $state_home in
+  /*) state_home=${state_home%/} ;;
+  *)  state_home="$home/.local/state" ;;
+esac
+
 # A short digest of the absolute path. The readable slug below is lossy, so it
 # alone cannot tell two directories apart: ~/my project and ~/my-project squeeze
 # to the same string. cksum is POSIX and reads bytes, so the digest does not move
@@ -80,9 +93,9 @@ path_digest() {
   printf '%06x' "$(( 10#$crc & 0xFFFFFF ))"
 }
 
-# Set alongside a derived path only: the file the same slug had before 0.3.0,
-# read below when it is the only one of the two that exists. A pinned path has
-# no old form to fall back to.
+# Set alongside a derived path only: the file this slug had while the default
+# was under ~/.claude. Reported below when it is the only one of the two that
+# exists. A pinned path has no old form, so it stays empty there.
 legacy_file=""
 
 handoff_file="${PERSISTENT_HANDOFF_FILE:-}"
@@ -127,9 +140,8 @@ if [ -z "$handoff_file" ]; then
   # Not under ~/.claude. Claude Code protects that directory ahead of any allow
   # rule, so an agent in the default or acceptEdits mode is prompted before it
   # writes its handoff, and one told to refuse never writes it at all. The
-  # handoff is written unprompted at a milestone or it is not written. Reads
-  # were never prompted, which is what makes the fallback below safe.
-  handoff_file="${XDG_STATE_HOME:-$home/.local/state}/persistent-handoff/$slug.md"
+  # handoff is written unprompted at a milestone or it is not written.
+  handoff_file="$state_home/persistent-handoff/$slug.md"
   legacy_file="$home/.claude/handoffs/$slug.md"
 fi
 
@@ -170,22 +182,6 @@ fi
 exists() { [ -e "$1" ] || [ -L "$1" ]; }   # -L: a dangling symlink is a broken
                                           # handoff, not an absent one
 
-# 0.3.0 moved the derived path out of ~/.claude. A handoff written before that is
-# still the state of its agent, and nothing else is going to move it, so read it
-# while it is the only one there. The note goes into the preamble rather than on
-# stderr, which from a hook that exits 0 reaches the debug log only: the session
-# that reads the file is the one that rewrites it, and it is the only thing on
-# the machine that can put it at the current path.
-legacy_note=""
-if [ -n "$legacy_file" ] && ! exists "$handoff_file" && exists "$legacy_file"; then
-  legacy_note=" That is the old default path, from before 0.3.0. The current one is $handoff_file. Write your next update there, then delete the old file."
-  handoff_file="$legacy_file"
-fi
-
-# Nothing in flight: print nothing and exit clean. Silence is the normal case,
-# and it is what makes the file's presence meaningful.
-exists "$handoff_file" || exit 0
-
 emit() {
   # jq failing is treated like jq missing. Testing only for its presence would
   # drop the handoff in silence the day it exits non-zero.
@@ -200,6 +196,22 @@ emit() {
   # like JSON would otherwise be read as this hook's structured output.
   printf '%s\n' "$1"
 }
+
+# The default path used to be under ~/.claude, and a handoff written back then is
+# still sitting there where nothing reads it. Say so. Handing the content over
+# instead reads well exactly once: the old file has no expiry, so the session
+# that finishes its work and deletes its handoff, which is how this plugin says
+# nothing is in flight, would be given its pre-upgrade state back at the next
+# start, and at every start after that. A filename cannot go stale that way, and
+# moving the file ends the message for good.
+if [ -n "$legacy_file" ] && ! exists "$handoff_file" && exists "$legacy_file"; then
+  emit "A handoff for this directory sits at $legacy_file. That is where this plugin kept handoffs before the default moved out of ~/.claude, and nothing reads it any more, so its contents are not in this session. Read that file, write it to $handoff_file, and delete the old one. After that it loads by itself again, and this message stops."
+  exit 0
+fi
+
+# Nothing in flight: print nothing and exit clean. Silence is the normal case,
+# and it is what makes the file's presence meaningful.
+exists "$handoff_file" || exit 0
 
 # A handoff that exists but cannot be read is a misconfiguration, not an absence,
 # and it has to be reported through additionalContext: stderr from a hook that
@@ -221,12 +233,12 @@ case $body in *[![:space:]]*) ;; *) exit 0 ;; esac
 # none, and a sixth source added upstream lands here first.
 case $start_source in
   compact|resume|fork)
-    emit "Persistent handoff, read back after a $start_source, from $handoff_file.$legacy_note Your context above is newer than this file for what you did in this session; the file is the reference for everything else. If they disagree, update the file. The file is state, not a conversation summary. Start from \"Next action\". Update the file at the next milestone, remove from it whatever you resolve, and delete it when nothing is left in flight.
+    emit "Persistent handoff, read back after a $start_source, from $handoff_file. Your context above is newer than this file for what you did in this session; the file is the reference for everything else. If they disagree, update the file. The file is state, not a conversation summary. Start from \"Next action\". Update the file at the next milestone, remove from it whatever you resolve, and delete it when nothing is left in flight.
 
 $body"
     ;;
   *)
-    emit "Persistent handoff, read from $handoff_file.$legacy_note This is the state the previous session left behind, not a conversation summary. Start from \"Next action\". Update the file at the next milestone, remove from it whatever you resolve, and delete it when nothing is left in flight.
+    emit "Persistent handoff, read from $handoff_file. This is the state the previous session left behind, not a conversation summary. Start from \"Next action\". Update the file at the next milestone, remove from it whatever you resolve, and delete it when nothing is left in flight.
 
 $body"
     ;;

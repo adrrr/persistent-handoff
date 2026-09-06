@@ -34,7 +34,7 @@ Three sessions in one directory are one agent, and the last writer wins. Writing
 
 ## The 10,000 character cap
 
-Claude Code caps a hook's output at 10,000 characters and injects a truncated preview plus a path past that. The limit is Claude Code's and can move in a release without warning. The preamble takes 259 characters plus the path on a fresh start, 404 to 407 after a compact, a resume or a fork. A handoff still at the pre-0.3.0 path adds a sentence naming both paths. A handoff of 300 to 500 tokens sits far below the cap. One grown into a journal arrives as a preview.
+Claude Code caps a hook's output at 10,000 characters and injects a truncated preview plus a path past that. The limit is Claude Code's and can move in a release without warning. The preamble takes 259 characters plus the path on a fresh start, 404 to 407 after a compact, a resume or a fork. The notice about a handoff left at the old path is 308 characters plus the two paths, and replaces the preamble rather than adding to it. A handoff of 300 to 500 tokens sits far below the cap. One grown into a journal arrives as a preview.
 
 ## Repeated resumes do not stack copies
 

@@ -13,7 +13,7 @@ HOME_DIR="$TMP/home"
 # it would send every staged handoff somewhere the assertions do not look.
 unset PERSISTENT_HANDOFF_FILE
 unset XDG_STATE_HOME
-# Where the derived name lands, and where it used to land before 0.3.0. The old
+# Where the derived name lands, and where it used to land. The old
 # directory is created empty and stays empty: cases 1 to 37 then also say that an
 # upgraded machine with nothing left in it behaves like a machine that never had
 # one. Case 40 stages a file in it, in a home of its own.
@@ -528,38 +528,67 @@ p=$(cd "$HOME_DIR/proj-alpha" && HOME="$HOME_DIR" XDG_STATE_HOME="$XDG" "$HOOK" 
 [ "$p" = "$XDG/persistent-handoff/proj-alpha-$(digest_of "$HOME_DIR/proj-alpha").md" ] \
   && ok "39 XDG_STATE_HOME moves the derived path" || ko "39 (--path=<$p>)"
 
-# 40. A handoff written by 0.2.x sits at the old path under ~/.claude. Reading it
-# never prompted, only writing did, so an upgrade must not lose the file: the
-# hook reads it while it is the only one there, names it, and says it is at the
-# old default so the session moves it on its next write.
+# 40. A handoff written before the path moved is still under ~/.claude, where
+# nothing reads it any more. The hook says so, naming the file and where it
+# belongs. It does not hand the content over: see case 42 for why.
 LEG_HOME=$TMP/legacy-home
 LEG_STATE=$LEG_HOME/.local/state/persistent-handoff
 mkdir -p "$LEG_HOME/.claude/handoffs" "$LEG_HOME/proj"
 LEG_NAME=proj-$(digest_of "$LEG_HOME/proj").md
 printf 'legacy state\n' > "$LEG_HOME/.claude/handoffs/$LEG_NAME"
 c=$(payload_for "$LEG_HOME/proj" | HOME="$LEG_HOME" "$HOOK" | jq -r '.hookSpecificOutput.additionalContext')
-if printf '%s' "$c" | grep -q 'legacy state' \
-   && printf '%s' "$c" | grep -qF "$LEG_HOME/.claude/handoffs/$LEG_NAME" \
-   && printf '%s' "$c" | grep -q 'old default' \
-   && printf '%s' "$c" | grep -qF "$LEG_STATE/$LEG_NAME"; then
-  ok "40 handoff at the pre-0.3.0 path: read, named, reported as the old one"
+if printf '%s' "$c" | grep -qF "$LEG_HOME/.claude/handoffs/$LEG_NAME" \
+   && printf '%s' "$c" | grep -qF "$LEG_STATE/$LEG_NAME" \
+   && printf '%s' "$c" | grep -q 'sits at' \
+   && ! printf '%s' "$c" | grep -q 'legacy state'; then
+  ok "40 handoff left at the old path: reported, not injected"
 else
   ko "40 (ctx=<$c>)"
 fi
 
-# 41. Once the current path holds a file, it is the only one read. The old file
-# is left where it is, and nothing about it reaches the session: two states with
-# a rule saying which wins is what the whole plugin refuses everywhere else.
+# 41. Once the current path holds a handoff, it is the only one that speaks. The
+# old file is left where it is and nothing about it reaches the session: two
+# states with a rule saying which wins is what this plugin refuses everywhere.
 mkdir -p "$LEG_STATE"
 printf 'current state\n' > "$LEG_STATE/$LEG_NAME"
 c=$(payload_for "$LEG_HOME/proj" | HOME="$LEG_HOME" "$HOOK" | jq -r '.hookSpecificOutput.additionalContext')
 if printf '%s' "$c" | grep -q 'current state' \
    && ! printf '%s' "$c" | grep -q 'legacy state' \
-   && ! printf '%s' "$c" | grep -q 'old default'; then
-  ok "41 current path wins over the old one, with no note"
+   && ! printf '%s' "$c" | grep -q 'sits at'; then
+  ok "41 current path wins over the old one, with no notice"
 else
   ko "41 (ctx=<$c>)"
 fi
+
+# 42. REGRESSION: the old file must never come back as state. Deleting the
+# handoff is how this plugin says nothing is in flight, and the old file has no
+# expiry, so a hook that injected it would hand a finished agent its pre-upgrade
+# work back at every start, for as long as the file existed. The notice names
+# the file instead, which cannot go stale, and the session ends it by moving the
+# file. The body has to stay out of the session either way.
+rm "$LEG_STATE/$LEG_NAME"
+c=$(payload_for "$LEG_HOME/proj" | HOME="$LEG_HOME" "$HOOK" | jq -r '.hookSpecificOutput.additionalContext')
+if ! printf '%s' "$c" | grep -q 'legacy state' \
+   && ! printf '%s' "$c" | grep -q 'state the previous session left behind' \
+   && printf '%s' "$c" | grep -q 'sits at'; then
+  ok "42 deleted handoff is not resurrected from the old path"
+else
+  ko "42 (ctx=<$c>)"
+fi
+printf 'current state\n' > "$LEG_STATE/$LEG_NAME"
+
+# 43. XDG_STATE_HOME is normalised the way $HOME is. The spec says a relative
+# value is invalid and must be ignored, and ignoring it matters more here than
+# elsewhere: a relative handoff path resolves against the process's directory,
+# which is not the cwd the payload names, so the hook would write and read two
+# different files and go silent instead of saying anything. A trailing slash
+# doubles in a path the preamble prints.
+WANT=$STATE/proj-alpha-$(digest_of "$HOME_DIR/proj-alpha").md
+rel=$(cd "$HOME_DIR/proj-alpha" && HOME="$HOME_DIR" XDG_STATE_HOME="rel/state" "$HOOK" --path)
+slash=$(cd "$HOME_DIR/proj-alpha" && HOME="$HOME_DIR" XDG_STATE_HOME="$HOME_DIR/.local/state/" "$HOOK" --path)
+[ "$rel" = "$WANT" ] && [ "$slash" = "$WANT" ] \
+  && ok "43 XDG_STATE_HOME: a relative value is ignored, a trailing slash does not double" \
+  || ko "43 (relative=<$rel> trailing-slash=<$slash> expected=<$WANT>)"
 
 echo "---"
 [ "$skipped" -eq 0 ] || echo "$skipped case(s) skipped: they asserted nothing here"

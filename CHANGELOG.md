@@ -11,14 +11,19 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `/home/alice/work/acme/api` reads
   `~/.local/state/persistent-handoff/work-acme-api-32817b.md` instead of
   `~/.claude/handoffs/work-acme-api-32817b.md`. `XDG_STATE_HOME` replaces
-  `~/.local/state` when it is set. `~/.claude` is a protected path in Claude
-  Code: the guard runs ahead of any allow rule, so a session in `default` or
-  `acceptEdits` is prompted before the agent writes its handoff there, and one
-  told to refuse never writes it at all. The plugin's contract is that the agent
-  writes at milestones without being asked, and that only held under
-  `bypassPermissions`. Reads were never prompted, which is why the old file is
-  still read: see the migration note below. `PERSISTENT_HANDOFF_FILE` is
-  unchanged and still wins over both.
+  `~/.local/state` when it holds an absolute path, and is ignored when it does
+  not, as the XDG spec says. `~/.claude` is a protected path in Claude Code: the
+  guard runs ahead of any allow rule, so a session in `default` or `acceptEdits`
+  is prompted before the agent writes its handoff there, and one told to refuse
+  never writes it at all. The plugin's contract is that the agent writes at
+  milestones without being asked, and that only held under `bypassPermissions`.
+  `PERSISTENT_HANDOFF_FILE` is unchanged and still wins over the derived path.
+- A handoff left at the old path is named at every session start, with the path
+  it belongs at, until it is moved. Its contents are not injected. Injecting
+  them would read well once and then never stop: the old file has no expiry, so
+  a session that finished its work and deleted its handoff, which is how this
+  plugin says nothing is in flight, would be handed its pre-upgrade state back
+  at every start.
 - Demo: the handoff is `demo/homelab/handoff.md`, at the project root, for the
   same reason. It was `demo/homelab/.claude/handoff.md`, so the run meant to
   show the skill rewriting a handoff on its own asked the reader to approve the
@@ -28,7 +33,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `.claude/hooks/session-start-handoff.sh`, a gitignored copy that
   `demo/setup.sh` writes, so a clone that had not run `demo/setup.sh` wired a
   `SessionStart` hook to a file that does not exist and Claude Code got exit 127
-  at every session start. `demo/setup.sh` installs the skill only.
+  at every session start. `demo/setup.sh` installs the skill only, and removes
+  the hook copy an earlier version left behind.
 - README: the demo command needs Claude Code 2.1.197, the release that added
   `claude-sonnet-5`. The stated floor was 2.1.69, which is the plugin's. The
   trust prompt preselects the option that exits, and the first rewrite outside
@@ -36,28 +42,34 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- `tests/hook.sh`: 37 cases to 41. The derived path, the `XDG_STATE_HOME`
-  override, the read of a handoff left at the pre-0.3.0 path, and the current
-  path winning when both exist.
+- `tests/hook.sh`: 37 cases to 43. The derived path, the `XDG_STATE_HOME`
+  override and its normalisation, the notice for a handoff left at the old path,
+  the current path winning when both exist, and a deleted handoff staying
+  deleted rather than coming back from the old path.
 - `tests/manifests.sh`: 14 cases to 16. The demo command stays out of
   `.claude/`, and it runs on the tree as cloned and returns the demo's handoff.
 
 ### Moving a handoff written by 0.2.x
 
-The hook reads the old path while it is the only one of the two that exists, and
-the line it injects says so, naming both paths. Nothing is lost by doing nothing.
-To move it, in the directory that has the handoff:
+Nothing is lost by doing nothing, and nothing is read either: the hook names the
+file at every session start and asks the session to move it. To do it by hand,
+in the directory that has the handoff:
 
 ```bash
 new=$(session-start-handoff.sh --path)
-mv ~/.claude/handoffs/"${new##*/}" "$new"
+mv -n ~/.claude/handoffs/"${new##*/}" "$new"
 ```
 
 `session-start-handoff.sh` is the copy you installed, `~/.claude/hooks/` on a
-hand install. `--path` creates the directory it names, so the `mv` lands. Once
-the file is at the new path the old one is ignored, which makes a leftover copy
-stale rather than harmful. Agents pinned with `PERSISTENT_HANDOFF_FILE` are
-unaffected.
+hand install. `--path` creates the directory it names, so the `mv` lands. `-n`
+because a handoff already at the new path is the current one, and the old file
+is then a leftover to delete rather than a file to restore.
+
+Pinned agents are not unaffected. The hook reads a `PERSISTENT_HANDOFF_FILE` as
+given, so nothing breaks, but a path under `~/.claude` is the same protected
+path: the agent's writes to it are what gets prompted. `docs/REFERENCE.md` used
+`/home/alice/.claude/handoffs/fleet.md` as its example, so that shape is out
+there. Move the file and repoint the variable.
 
 ## [0.2.4] - 2026-09-05
 

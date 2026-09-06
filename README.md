@@ -86,7 +86,7 @@ Say `Keep the daily snapshots for the year, that's decided. I'm going to restart
 
 An agent in `/home/alice/work/acme/api` reads `~/.local/state/persistent-handoff/work-acme-api-32817b.md` by default. That name is the working directory relative to your home, separators turned into dashes, and a short digest of the full path on the end. `session-start-handoff.sh --path` prints it for the directory you run it in. Set `XDG_STATE_HOME` and the directory follows it.
 
-Not `~/.claude`, which Claude Code protects: writing there prompts you, and the agent is supposed to write its handoff at a milestone without asking. 0.2.x put the file there, and the hook still reads it while it is the only one. [Moving it](CHANGELOG.md#moving-a-handoff-written-by-02x) is two commands.
+Not `~/.claude`, which Claude Code protects: writing there prompts you, and the agent is supposed to write its handoff at a milestone without asking. 0.2.x put the file there. A handoff left behind is named at every session start until you [move it](CHANGELOG.md#moving-a-handoff-written-by-02x), which is two commands, and nothing reads it in the meantime.
 
 An agent not tied to one directory pins `PERSISTENT_HANDOFF_FILE` to an absolute path. [`docs/REFERENCE.md`](docs/REFERENCE.md) covers the expansion trap in doing that, what the digest does and doesn't guarantee, several sessions on one path, and Claude Code's 10,000 character cap on hook output.
 
@@ -118,9 +118,9 @@ Many handoff skills exist for Claude Code. This one keeps a single file, rewritt
 
 ## Tests
 
-`bash tests/hook.sh`: 41 cases on the hook's failure modes, its two preambles and the path it derives. `bash tests/manifests.sh`: 16 cases pinning the plugin manifests, holding the `SessionStart` block to one shape in its three copies (plugin, demo, hand-install snippet in [`docs/INSTALL.md`](docs/INSTALL.md)), and running the demo's own hook command on the tree as cloned.
+`bash tests/hook.sh`: 43 cases on the hook's failure modes, its two preambles and the path it derives. `bash tests/manifests.sh`: 16 cases pinning the plugin manifests, holding the `SessionStart` block to one shape in its three copies (plugin, demo, hand-install snippet in [`docs/INSTALL.md`](docs/INSTALL.md)), and running the demo's own hook command on the tree as cloned.
 
-[CI](.github/workflows/tests.yml) runs both suites on Ubuntu, macOS and Windows, on every pull request, every push to `main` and on demand. 57 assertions per OS, minus three on Windows where NTFS won't stage a `chmod 000` that denies a read, a `chmod 555` directory or a dangling symlink (the suite prints how many it skipped). The same workflow runs `./demo/setup.sh` and runs `shellcheck` on the Linux leg.
+[CI](.github/workflows/tests.yml) runs both suites on Ubuntu, macOS and Windows, on every pull request, every push to `main` and on demand. 59 assertions per OS, minus three on Windows where NTFS won't stage a `chmod 000` that denies a read, a `chmod 555` directory or a dangling symlink (the suite prints how many it skipped). The same workflow runs `./demo/setup.sh` and runs `shellcheck` on the Linux leg.
 
 ## License
 

@@ -11,6 +11,11 @@ here=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$here/.." && pwd)
 project="$here/homelab"
 
+# Earlier versions installed a copy of the hook here and gitignored it. The
+# demo calls the repo's own hook now, and the leftover copy would show up as an
+# untracked directory in every contributor's tree.
+rm -rf "$project/.claude/hooks"
+
 mkdir -p "$project/.claude/skills/persistent-handoff"
 cp -R "$root/skills/persistent-handoff/." "$project/.claude/skills/persistent-handoff/"
 

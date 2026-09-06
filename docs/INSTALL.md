@@ -57,7 +57,7 @@ On native Windows, Claude Code runs a `command` hook through Git Bash when [Git 
 
 ## Upgrading
 
-From 0.2.x: the derived path moved out of `~/.claude`, which Claude Code protects. The hook still reads the old file while it is the only one, and says so in the line it injects. The [0.3.0 changelog entry](../CHANGELOG.md#moving-a-handoff-written-by-02x) has the two commands that move it.
+From 0.2.x: the derived path moved out of `~/.claude`, which Claude Code protects. A handoff left at the old path is not lost and not read either. The hook names it at every session start and asks the session to move it, and the [changelog entry](../CHANGELOG.md#moving-a-handoff-written-by-02x) has the two commands that do it by hand. If you pinned `PERSISTENT_HANDOFF_FILE` under `~/.claude`, the hook still reads it, but your agent's writes are the ones being prompted: move the file and repoint the variable.
 
 From 0.1.0: the derived filename gained a digest, so the hook won't find a handoff written by 0.1.0 and nothing warns you. The [0.2.0 changelog entry](../CHANGELOG.md#upgrading-from-010) says what to rename.
 
