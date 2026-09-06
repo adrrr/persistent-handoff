@@ -4,7 +4,7 @@ The short answers in the README, in full. All of it is behaviour of [`hooks/sess
 
 ## The derived name
 
-By default the hook names the file after the working directory relative to your home, separators turned into dashes, plus a short digest of the full path. An agent in `/home/alice/work/acme/api` reads `~/.claude/handoffs/work-acme-api-32817b.md`.
+By default the hook names the file after the working directory relative to your home, separators turned into dashes, plus a short digest of the full path. An agent in `/home/alice/work/acme/api` reads `~/.local/state/persistent-handoff/work-acme-api-32817b.md`. `XDG_STATE_HOME` replaces `~/.local/state` when it is set.
 
 The dashed part lets you read the directory off the filename. The six hex characters separate what it merges, `~/my project` and `~/my-project`, or `~/abs/var/tmp/x` and `/var/tmp/x`. The digest covers the absolute path, so yours won't match the example.
 
@@ -19,7 +19,7 @@ For an agent not tied to one directory, set `PERSISTENT_HANDOFF_FILE` in the `en
 ```json
 {
   "env": {
-    "PERSISTENT_HANDOFF_FILE": "/home/alice/.claude/handoffs/fleet.md"
+    "PERSISTENT_HANDOFF_FILE": "/home/alice/.local/state/persistent-handoff/fleet.md"
   }
 }
 ```
@@ -34,7 +34,7 @@ Three sessions in one directory are one agent, and the last writer wins. Writing
 
 ## The 10,000 character cap
 
-Claude Code caps a hook's output at 10,000 characters and injects a truncated preview plus a path past that. The limit is Claude Code's and can move in a release without warning. The preamble takes 259 characters plus the path on a fresh start, 404 to 407 after a compact, a resume or a fork. A handoff of 300 to 500 tokens sits far below the cap. One grown into a journal arrives as a preview.
+Claude Code caps a hook's output at 10,000 characters and injects a truncated preview plus a path past that. The limit is Claude Code's and can move in a release without warning. The preamble takes 259 characters plus the path on a fresh start, 404 to 407 after a compact, a resume or a fork. The notice about a handoff left at the old path is 308 characters plus the two paths, and replaces the preamble rather than adding to it. A handoff of 300 to 500 tokens sits far below the cap. One grown into a journal arrives as a preview.
 
 ## Repeated resumes do not stack copies
 
@@ -42,6 +42,6 @@ Claude Code drops a `SessionStart` `additionalContext` whose exact text is alrea
 
 ## The handoff is input the agent acts on
 
-The hook feeds the handoff into a fresh session as context, and the file tells that session what to do next. Treat it as executable input and read [`hooks/session-start-handoff.sh`](../hooks/session-start-handoff.sh) before installing. That's fine in `~/.claude/handoffs`, which only you write to. A handoff committed to a repo means anyone who can push there writes into your agent's context, so keep that to repos whose writers you trust. The demo's trust prompt preselects the option that exits, because the demo carries a project hook.
+The hook feeds the handoff into a fresh session as context, and the file tells that session what to do next. Treat it as executable input and read [`hooks/session-start-handoff.sh`](../hooks/session-start-handoff.sh) before installing. That's fine in `~/.local/state/persistent-handoff`, which only you write to. A handoff committed to a repo means anyone who can push there writes into your agent's context, so keep that to repos whose writers you trust. The demo's trust prompt preselects the option that exits, because the demo carries a project hook.
 
-Claude Code treats anything under `.claude/` as sensitive, so a session set to ask will ask before the skill writes `.claude/handoff.md`. The GIF ran in auto mode, which allowed the write and printed that it had.
+The demo keeps its handoff at the project root for the same reason the derived path is no longer under `.claude/`: Claude Code protects that directory ahead of any allow rule, and the skill is supposed to write without asking. A session in the default mode still asks before the first write to `demo/homelab/handoff.md`, like any other file. The GIF ran in auto mode, which allowed it and printed that it had.

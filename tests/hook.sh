@@ -9,8 +9,17 @@ HOME_DIR="$TMP/home"
 # The suite stages its own handoffs at derived paths, so a PERSISTENT_HANDOFF_FILE
 # inherited from the caller wins over every one of them. The README tells fleet
 # operators to export exactly that, and CONTRIBUTING tells them to run this file.
+# XDG_STATE_HOME moves the derived path the same way, and a machine that exports
+# it would send every staged handoff somewhere the assertions do not look.
 unset PERSISTENT_HANDOFF_FILE
-mkdir -p "$HOME_DIR/.claude/handoffs" "$HOME_DIR/proj-alpha"
+unset XDG_STATE_HOME
+# Where the derived name lands, and where it used to land. The old
+# directory is created empty and stays empty: cases 1 to 37 then also say that an
+# upgraded machine with nothing left in it behaves like a machine that never had
+# one. Case 40 stages a file in it, in a home of its own.
+STATE=$HOME_DIR/.local/state/persistent-handoff
+LEGACY=$HOME_DIR/.claude/handoffs
+mkdir -p "$STATE" "$LEGACY" "$HOME_DIR/proj-alpha"
 fail=0
 skipped=0
 ok() { echo "PASS $1"; }
@@ -71,7 +80,7 @@ ctx_of() { printf '%s' "$1" | jq -r '.hookSpecificOutput.additionalContext'; }
 digest_of() { printf '%s' "$1" | cksum | { read -r crc _; printf '%06x' "$((crc & 0xFFFFFF))"; }; }
 # Stage a handoff for the cwd the hook will be given, and echo that cwd.
 handoff_for() { # <cwd> <slug> <content>
-  printf '%s' "$3" > "$HOME_DIR/.claude/handoffs/$2-$(digest_of "$1").md"
+  printf '%s' "$3" > "$STATE/$2-$(digest_of "$1").md"
 }
 reads() { # <cwd> <marker> -> 0 if the hook read a handoff containing <marker>
   payload_for "$1" | HOME="$HOME_DIR" "$HOOK" | grep -q "$2"
@@ -82,7 +91,7 @@ out=$(run); rc=$?
 [ "$rc" -eq 0 ] && [ -z "$out" ] && ok "1 missing file: silent, exit 0" || ko "1 (rc=$rc out=<$out>)"
 
 # 2. Empty handoff file: still silent. Emptiness is legitimate.
-ALPHA=$HOME_DIR/.claude/handoffs/proj-alpha-$(digest_of "$HOME_DIR/proj-alpha").md
+ALPHA=$STATE/proj-alpha-$(digest_of "$HOME_DIR/proj-alpha").md
 : > "$ALPHA"
 out=$(run); rc=$?
 [ "$rc" -eq 0 ] && [ -z "$out" ] && ok "2 empty file: silent, exit 0" || ko "2 (rc=$rc out=<$out>)"
@@ -147,7 +156,7 @@ out=$(printf '%s' "$PAYLOAD" | env PATH="$TMP/badbin:$PATH" HOME="$HOME_DIR" PER
   && ok "7 failing jq: falls back to plain text" || ko "7 (rc=$rc out=<$out>)"
 
 # 8. REGRESSION: a directory must not produce a preamble with an empty body.
-out=$(printf '%s' "$PAYLOAD" | HOME="$HOME_DIR" PERSISTENT_HANDOFF_FILE="$HOME_DIR/.claude/handoffs" "$HOOK"); rc=$?
+out=$(printf '%s' "$PAYLOAD" | HOME="$HOME_DIR" PERSISTENT_HANDOFF_FILE="$STATE" "$HOOK"); rc=$?
 c=$(ctx_of "$out")
 [ "$rc" -eq 0 ] && echo "$c" | grep -q 'could not be read' && ! echo "$c" | grep -q 'Start from' \
   && ok "8 directory: reports unreadable, no hollow preamble" || ko "8 (rc=$rc ctx=<$c>)"
@@ -231,8 +240,8 @@ fi
 # unquoted \$home in the prefix-strip turns [1] into a character class and the
 # derived name silently changes.
 GLOB_HOME="$TMP/h[1]"
-mkdir -p "$GLOB_HOME/.claude/handoffs" "$GLOB_HOME/proj"
-printf 'glob home works\n' > "$GLOB_HOME/.claude/handoffs/proj-$(digest_of "$GLOB_HOME/proj").md"
+mkdir -p "$GLOB_HOME/.local/state/persistent-handoff" "$GLOB_HOME/proj"
+printf 'glob home works\n' > "$GLOB_HOME/.local/state/persistent-handoff/proj-$(digest_of "$GLOB_HOME/proj").md"
 out=$(payload_for "$GLOB_HOME/proj" | HOME="$GLOB_HOME" "$HOOK")
 printf '%s' "$out" | grep -q 'glob home works' \
   && ok "18 \$HOME with glob metacharacters" || ko "18"
@@ -286,11 +295,11 @@ fi
 
 # 22. cwd == $HOME must not be named after its own absolute path: the prefix strip
 # carries a trailing slash and does not fire, and the abs- guard is skipped, so ~
-# used to be read as ~/.claude/handoffs/Users-alice.md and collided with ~/Users/alice.
+# used to be read as <state>/Users-alice.md and collided with ~/Users/alice.
 handoff_for "$HOME_DIR" home 'home itself
 '
 reads "$HOME_DIR" 'home itself' && ok "22 cwd == \$HOME is named home" \
-  || ko "22 (cwd == \$HOME did not read handoffs/home-<digest>.md)"
+  || ko "22 (cwd == \$HOME did not read home-<digest>.md)"
 
 # 23. A dangling symlink exists as far as the user is concerned, and swallowing it
 # contradicts the unreadable-file branch six lines below: report, do not go silent.
@@ -379,7 +388,7 @@ fi
 # resolution for anything else.
 mkdir -p "$TMP/nocksum"
 printf '#!/bin/sh\nexit 127\n' > "$TMP/nocksum/cksum"; chmod +x "$TMP/nocksum/cksum"
-printf 'degraded state\n' > "$HOME_DIR/.claude/handoffs/proj-alpha.md"
+printf 'degraded state\n' > "$STATE/proj-alpha.md"
 out=$(printf '%s' "$PAYLOAD" | env PATH="$TMP/nocksum:$PATH" HOME="$HOME_DIR" "$HOOK" 2>"$TMP/degraded.err"); rc=$?
 err=$(cat "$TMP/degraded.err")
 if [ "$rc" -eq 0 ] && ctx_of "$out" | grep -q 'degraded state' && printf '%s' "$err" | grep -q 'no usable cksum'; then
@@ -481,24 +490,105 @@ else
 fi
 
 # 37. --path creates the directory it names, and has to say so when it cannot.
-# The mkdir was `|| true`, so a read-only ~/.claude produced a confident path
-# inside a directory that does not exist: exit 0, stderr empty, and the agent's
-# first write then died on "No such file or directory" with nothing pointing at
-# the cause. The exit code stays 0 on purpose, a SessionStart hook that fails
-# the session is worse than one that warns.
+# The mkdir was `|| true`, so a read-only state directory produced a confident
+# path inside a directory that does not exist: exit 0, stderr empty, and the
+# agent's first write then died on "No such file or directory" with nothing
+# pointing at the cause. The exit code stays 0 on purpose, a SessionStart hook
+# that fails the session is worse than one that warns.
 RO=$TMP/ro-home
-mkdir -p "$RO/.claude"
-chmod 555 "$RO/.claude" 2>/dev/null
+mkdir -p "$RO/.local/state"
+chmod 555 "$RO/.local/state" 2>/dev/null
 p=$(cd "$TMP" && HOME="$RO" "$HOOK" --path 2>"$TMP/ro.err"); rc=$?
 err=$(cat "$TMP/ro.err")
-if [ -d "$RO/.claude/handoffs" ]; then
+if [ -d "$RO/.local/state/persistent-handoff" ]; then
   sk "37 (a 555 directory is still writable here: root, or no POSIX file modes)"
 elif [ "$rc" -eq 0 ] && [ -n "$p" ] && printf '%s' "$err" | grep -q 'could not create'; then
   ok "37 --path reports the directory it could not create"
 else
   ko "37 (rc=$rc path=<$p> stderr=<$err>)"
 fi
-chmod 755 "$RO/.claude" 2>/dev/null
+chmod 755 "$RO/.local/state" 2>/dev/null
+
+# 38. The derived path is outside ~/.claude. Claude Code treats that whole
+# directory as protected: a session in default or acceptEdits is prompted before
+# the agent writes there, and a session set to refuse never writes at all. The
+# handoff the agent must write unprompted at a milestone cannot live behind that.
+p=$(cd "$HOME_DIR/proj-alpha" && HOME="$HOME_DIR" "$HOOK" --path)
+case $p in
+  "$STATE/proj-alpha-$(digest_of "$HOME_DIR/proj-alpha").md")
+    ok "38 derived path is ~/.local/state/persistent-handoff, outside .claude" ;;
+  *) ko "38 (--path=<$p>)" ;;
+esac
+
+# 39. XDG_STATE_HOME moves the state directory, which is the point of naming it.
+# A machine that sets it keeps every other state file there and would be the one
+# machine where this one is somewhere else.
+XDG=$TMP/xdg
+p=$(cd "$HOME_DIR/proj-alpha" && HOME="$HOME_DIR" XDG_STATE_HOME="$XDG" "$HOOK" --path)
+[ "$p" = "$XDG/persistent-handoff/proj-alpha-$(digest_of "$HOME_DIR/proj-alpha").md" ] \
+  && ok "39 XDG_STATE_HOME moves the derived path" || ko "39 (--path=<$p>)"
+
+# 40. A handoff written before the path moved is still under ~/.claude, where
+# nothing reads it any more. The hook says so, naming the file and where it
+# belongs. It does not hand the content over: see case 42 for why.
+LEG_HOME=$TMP/legacy-home
+LEG_STATE=$LEG_HOME/.local/state/persistent-handoff
+mkdir -p "$LEG_HOME/.claude/handoffs" "$LEG_HOME/proj"
+LEG_NAME=proj-$(digest_of "$LEG_HOME/proj").md
+printf 'legacy state\n' > "$LEG_HOME/.claude/handoffs/$LEG_NAME"
+c=$(payload_for "$LEG_HOME/proj" | HOME="$LEG_HOME" "$HOOK" | jq -r '.hookSpecificOutput.additionalContext')
+if printf '%s' "$c" | grep -qF "$LEG_HOME/.claude/handoffs/$LEG_NAME" \
+   && printf '%s' "$c" | grep -qF "$LEG_STATE/$LEG_NAME" \
+   && printf '%s' "$c" | grep -q 'sits at' \
+   && ! printf '%s' "$c" | grep -q 'legacy state'; then
+  ok "40 handoff left at the old path: reported, not injected"
+else
+  ko "40 (ctx=<$c>)"
+fi
+
+# 41. Once the current path holds a handoff, it is the only one that speaks. The
+# old file is left where it is and nothing about it reaches the session: two
+# states with a rule saying which wins is what this plugin refuses everywhere.
+mkdir -p "$LEG_STATE"
+printf 'current state\n' > "$LEG_STATE/$LEG_NAME"
+c=$(payload_for "$LEG_HOME/proj" | HOME="$LEG_HOME" "$HOOK" | jq -r '.hookSpecificOutput.additionalContext')
+if printf '%s' "$c" | grep -q 'current state' \
+   && ! printf '%s' "$c" | grep -q 'legacy state' \
+   && ! printf '%s' "$c" | grep -q 'sits at'; then
+  ok "41 current path wins over the old one, with no notice"
+else
+  ko "41 (ctx=<$c>)"
+fi
+
+# 42. REGRESSION: the old file must never come back as state. Deleting the
+# handoff is how this plugin says nothing is in flight, and the old file has no
+# expiry, so a hook that injected it would hand a finished agent its pre-upgrade
+# work back at every start, for as long as the file existed. The notice names
+# the file instead, which cannot go stale, and the session ends it by moving the
+# file. The body has to stay out of the session either way.
+rm "$LEG_STATE/$LEG_NAME"
+c=$(payload_for "$LEG_HOME/proj" | HOME="$LEG_HOME" "$HOOK" | jq -r '.hookSpecificOutput.additionalContext')
+if ! printf '%s' "$c" | grep -q 'legacy state' \
+   && ! printf '%s' "$c" | grep -q 'state the previous session left behind' \
+   && printf '%s' "$c" | grep -q 'sits at'; then
+  ok "42 deleted handoff is not resurrected from the old path"
+else
+  ko "42 (ctx=<$c>)"
+fi
+printf 'current state\n' > "$LEG_STATE/$LEG_NAME"
+
+# 43. XDG_STATE_HOME is normalised the way $HOME is. The spec says a relative
+# value is invalid and must be ignored, and ignoring it matters more here than
+# elsewhere: a relative handoff path resolves against the process's directory,
+# which is not the cwd the payload names, so the hook would write and read two
+# different files and go silent instead of saying anything. A trailing slash
+# doubles in a path the preamble prints.
+WANT=$STATE/proj-alpha-$(digest_of "$HOME_DIR/proj-alpha").md
+rel=$(cd "$HOME_DIR/proj-alpha" && HOME="$HOME_DIR" XDG_STATE_HOME="rel/state" "$HOOK" --path)
+slash=$(cd "$HOME_DIR/proj-alpha" && HOME="$HOME_DIR" XDG_STATE_HOME="$HOME_DIR/.local/state/" "$HOOK" --path)
+[ "$rel" = "$WANT" ] && [ "$slash" = "$WANT" ] \
+  && ok "43 XDG_STATE_HOME: a relative value is ignored, a trailing slash does not double" \
+  || ko "43 (relative=<$rel> trailing-slash=<$slash> expected=<$WANT>)"
 
 echo "---"
 [ "$skipped" -eq 0 ] || echo "$skipped case(s) skipped: they asserted nothing here"

@@ -37,7 +37,7 @@ Not after every message. The transcript already keeps the conversation. The hand
 
 One path, chosen once, used by every session of this agent. The `SessionStart` hook reads that exact path, and a handoff written anywhere else is never read by anyone.
 
-The hook shipped with this skill uses `PERSISTENT_HANDOFF_FILE` when that variable is set. Otherwise it builds the name from the working directory: the path relative to the home directory with the separators turned into dashes, then a short digest of the full path. An agent in `/home/alice/work/acme/api` gets `~/.claude/handoffs/work-acme-api-32817b.md`. The whole path is used rather than the last segment alone, so `~/work/beta/api` is a different agent with its own file, and the digest separates directories the dashed part alone would merge.
+The hook shipped with this skill uses `PERSISTENT_HANDOFF_FILE` when that variable is set. Otherwise it builds the name from the working directory: the path relative to the home directory with the separators turned into dashes, then a short digest of the full path. An agent in `/home/alice/work/acme/api` gets `~/.local/state/persistent-handoff/work-acme-api-32817b.md`. The whole path is used rather than the last segment alone, so `~/work/beta/api` is a different agent with its own file, and the digest separates directories the dashed part alone would merge.
 
 Do not try to compute that digest yourself. When a handoff already exists, the hook injects its path in the line above the content, so read it there. When you are writing the first one and nothing exists yet, ask the hook:
 
