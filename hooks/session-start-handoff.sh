@@ -178,7 +178,7 @@ exists() { [ -e "$1" ] || [ -L "$1" ]; }   # -L: a dangling symlink is a broken
 # the machine that can put it at the current path.
 legacy_note=""
 if [ -n "$legacy_file" ] && ! exists "$handoff_file" && exists "$legacy_file"; then
-  legacy_note=" That is the old default path, from before 0.3.0. The current one is $handoff_file: write your next update there, then delete the old file."
+  legacy_note=" That is the old default path, from before 0.3.0. The current one is $handoff_file. Write your next update there, then delete the old file."
   handoff_file="$legacy_file"
 fi
 

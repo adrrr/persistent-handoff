@@ -5,6 +5,60 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking.** The derived handoff path moved out of `~/.claude`. An agent in
+  `/home/alice/work/acme/api` reads
+  `~/.local/state/persistent-handoff/work-acme-api-32817b.md` instead of
+  `~/.claude/handoffs/work-acme-api-32817b.md`. `XDG_STATE_HOME` replaces
+  `~/.local/state` when it is set. `~/.claude` is a protected path in Claude
+  Code: the guard runs ahead of any allow rule, so a session in `default` or
+  `acceptEdits` is prompted before the agent writes its handoff there, and one
+  told to refuse never writes it at all. The plugin's contract is that the agent
+  writes at milestones without being asked, and that only held under
+  `bypassPermissions`. Reads were never prompted, which is why the old file is
+  still read: see the migration note below. `PERSISTENT_HANDOFF_FILE` is
+  unchanged and still wins over both.
+- Demo: the handoff is `demo/homelab/handoff.md`, at the project root, for the
+  same reason. It was `demo/homelab/.claude/handoff.md`, so the run meant to
+  show the skill rewriting a handoff on its own asked the reader to approve the
+  write.
+- Demo: `.claude/settings.json` calls the hook at the repo root through
+  `"${CLAUDE_PROJECT_DIR}"/../../hooks/session-start-handoff.sh`. It named
+  `.claude/hooks/session-start-handoff.sh`, a gitignored copy that
+  `demo/setup.sh` writes, so a clone that had not run `demo/setup.sh` wired a
+  `SessionStart` hook to a file that does not exist and Claude Code got exit 127
+  at every session start. `demo/setup.sh` installs the skill only.
+- README: the demo command needs Claude Code 2.1.197, the release that added
+  `claude-sonnet-5`. The stated floor was 2.1.69, which is the plugin's. The
+  trust prompt preselects the option that exits, and the first rewrite outside
+  auto mode asks for approval. Both are now said where the reader meets them.
+
+### Added
+
+- `tests/hook.sh`: 37 cases to 41. The derived path, the `XDG_STATE_HOME`
+  override, the read of a handoff left at the pre-0.3.0 path, and the current
+  path winning when both exist.
+- `tests/manifests.sh`: 14 cases to 16. The demo command stays out of
+  `.claude/`, and it runs on the tree as cloned and returns the demo's handoff.
+
+### Moving a handoff written by 0.2.x
+
+The hook reads the old path while it is the only one of the two that exists, and
+the line it injects says so, naming both paths. Nothing is lost by doing nothing.
+To move it, in the directory that has the handoff:
+
+```bash
+new=$(session-start-handoff.sh --path)
+mv ~/.claude/handoffs/"${new##*/}" "$new"
+```
+
+`session-start-handoff.sh` is the copy you installed, `~/.claude/hooks/` on a
+hand install. `--path` creates the directory it names, so the `mv` lands. Once
+the file is at the new path the old one is ignored, which makes a leftover copy
+stale rather than harmful. Agents pinned with `PERSISTENT_HANDOFF_FILE` are
+unaffected.
+
 ## [0.2.4] - 2026-09-05
 
 ### Added

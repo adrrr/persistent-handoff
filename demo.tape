@@ -18,15 +18,17 @@
 #
 # Two acts, and the cut between them is the restart. Act one, the user answers
 # the handoff's open question and says a restart is coming. The skill fires by
-# itself and rewrites .claude/handoff.md on screen, question gone. Then /exit,
+# itself and rewrites handoff.md on screen, question gone. Then /exit,
 # and `claude` again. Act two, the fresh session answers "where were we?" out of
 # the file act one wrote, without opening it. The Read on screen there is the log
 # the handoff points at, not the handoff.
 #
 # demo/homelab is the project it records: a throwaway homelab repo with the hook
-# installed at project scope, the way docs/INSTALL.md describes it. setup.sh puts
-# the hook and the skill in place, .claude/settings.json wires SessionStart with
-# the inline PERSISTENT_HANDOFF_FILE form, and .claude/handoff.md is the handoff.
+# wired at project scope, the way docs/INSTALL.md describes it. setup.sh puts the
+# skill in place, .claude/settings.json wires SessionStart with the inline
+# PERSISTENT_HANDOFF_FILE form, and handoff.md at the project root is the
+# handoff. Not under .claude/, which Claude Code protects: the write the GIF
+# exists to show would ask the reader for permission first.
 #
 # Nothing on the model's side is scripted. The tape waits for the Skill line and
 # then for the turn to end, so a take where the skill does not fire on its own
@@ -48,7 +50,7 @@
 # demo/homelab once by hand first, the hidden boot does not answer it. Record
 # outside tmux, or put `set -g focus-events on` in ~/.tmux.conf first, otherwise
 # Claude Code prints a tmux warning in the footer of every frame. And afterwards,
-# `git checkout -- demo/homelab/.claude/handoff.md`: the recording rewrites it,
+# `git checkout -- demo/homelab/handoff.md`: the recording rewrites it,
 # and the copy in the repo is the "before" state.
 
 Output demo.gif

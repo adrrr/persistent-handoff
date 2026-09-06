@@ -6,13 +6,15 @@ The plugin install in the [README](../README.md#install) is one command and wire
 
 The plugin needs Claude Code 2.1.69 or newer. It's developed and tested on 2.1.251. `${CLAUDE_SKILL_DIR}`, which the skill uses to name the hook, landed in 2.1.69. Before 2.1.214 a fork reports `resume`, which takes the same preamble.
 
+The demo command in the README is a higher floor, 2.1.197, because it names `claude-sonnet-5`. Drop `--model` on an older release.
+
 The hook needs `bash` on `PATH`. It uses no BSD-only flags and `jq` is optional. The shebang is `bash`, not `sh`, so a container image without bash won't run it.
 
 ## Copy the skill and the hook
 
 ```bash
 src=$(mktemp -d) && git clone https://github.com/adrrr/persistent-handoff "$src"
-mkdir -p ~/.claude/skills/persistent-handoff ~/.claude/hooks ~/.claude/handoffs
+mkdir -p ~/.claude/skills/persistent-handoff ~/.claude/hooks
 cp -r "$src"/skills/persistent-handoff/. ~/.claude/skills/persistent-handoff/
 install -m 755 "$src"/hooks/session-start-handoff.sh ~/.claude/hooks/
 ```
@@ -53,9 +55,11 @@ WSL is the recommended path. Claude Code inside WSL is Linux, so everything here
 
 On native Windows, Claude Code runs a `command` hook through Git Bash when [Git for Windows](https://git-scm.com/downloads/win) is installed, and through PowerShell when it isn't. Install Git for Windows first, PowerShell won't run a bash script.
 
-## Upgrading from 0.1.0
+## Upgrading
 
-The derived filename gained a digest, so the hook won't find a handoff written by 0.1.0 and nothing warns you. The [0.2.0 changelog entry](../CHANGELOG.md#upgrading-from-010) says what to rename.
+From 0.2.x: the derived path moved out of `~/.claude`, which Claude Code protects. The hook still reads the old file while it is the only one, and says so in the line it injects. The [0.3.0 changelog entry](../CHANGELOG.md#moving-a-handoff-written-by-02x) has the two commands that move it.
+
+From 0.1.0: the derived filename gained a digest, so the hook won't find a handoff written by 0.1.0 and nothing warns you. The [0.2.0 changelog entry](../CHANGELOG.md#upgrading-from-010) says what to rename.
 
 ## Plugin commands
 

@@ -5,7 +5,7 @@
 
 Your agent starts every session knowing where the work stands. It keeps one handoff file, rewrites it at milestones, and a `SessionStart` hook reads it back before your first message.
 
-![Animated terminal recording of the agent loading the persistent-handoff skill, writing .claude/handoff.md, exiting, and a new session answering from that file](demo.gif)
+![Animated terminal recording of the agent loading the persistent-handoff skill, writing its handoff file, exiting, and a new session answering from that file](demo.gif)
 
 *The agent rewrites its handoff, exits, and a new session answers `where were we?` from that file. The one `Read` on screen is the log the handoff points at.*
 
@@ -55,7 +55,7 @@ claude plugin marketplace add adrrr/persistent-handoff && claude plugin install 
 
 The repo is its own plugin marketplace, so that one command adds it, installs the plugin and wires the `SessionStart` hook.
 
-Needs Claude Code 2.1.69 or newer (tested on 2.1.251, [details](docs/INSTALL.md#claude-code-version)) and `bash` on `PATH`. [Windows](docs/INSTALL.md#windows): WSL, or [Git for Windows](https://git-scm.com/downloads/win) installed first. [`docs/INSTALL.md`](docs/INSTALL.md) has the in-session commands, uninstall, the hand install and the 0.1.0 upgrade note. Nothing happens until a handoff exists, the hook is silent when the file is missing or blank.
+Needs Claude Code 2.1.69 or newer (tested on 2.1.251, [details](docs/INSTALL.md#claude-code-version)) and `bash` on `PATH`. [Windows](docs/INSTALL.md#windows): WSL, or [Git for Windows](https://git-scm.com/downloads/win) installed first. [`docs/INSTALL.md`](docs/INSTALL.md) has the in-session commands, uninstall, the hand install and the upgrade notes. Nothing happens until a handoff exists, the hook is silent when the file is missing or blank.
 
 ## Try it
 
@@ -67,11 +67,11 @@ git clone https://github.com/adrrr/persistent-handoff && cd persistent-handoff
 claude --model claude-sonnet-5 --setting-sources project,local --strict-mcp-config --tools Read,Glob,Grep,Skill,Write
 ```
 
-Those are the flags the GIF used. They load only the demo's settings and no MCP server. `Write` isn't scoped to one file, so keep the session to the demo project.
+Those are the flags the GIF used. They load only the demo's settings and no MCP server. `Write` isn't scoped to one file, so keep the session to the demo project. `--model claude-sonnet-5` needs Claude Code 2.1.197, the release that added the model. Drop the flag on an older one.
 
-Claude Code asks you to trust the folder. The demo carries a project hook and the handoff it feeds is input the agent acts on, so read [`hooks/session-start-handoff.sh`](hooks/session-start-handoff.sh) first ([trust boundary](docs/REFERENCE.md#the-handoff-is-input-the-agent-acts-on)).
+Claude Code asks you to trust the folder, and the prompt preselects the option that exits. Pick the one that trusts it. The demo carries a project hook and the handoff it feeds is input the agent acts on, so read [`hooks/session-start-handoff.sh`](hooks/session-start-handoff.sh) first ([trust boundary](docs/REFERENCE.md#the-handoff-is-input-the-agent-acts-on)).
 
-Say `Keep the daily snapshots for the year, that's decided. I'm going to restart you in a minute.` The skill rewrites `.claude/handoff.md`. `/exit`, run the same command, ask `where were we?`. The answer comes from the hook, not from a file the agent opened. `git checkout -- demo/homelab/.claude/handoff.md` resets it.
+Say `Keep the daily snapshots for the year, that's decided. I'm going to restart you in a minute.` The skill rewrites `demo/homelab/handoff.md`. The GIF was recorded in auto mode, which allows that write. In default mode Claude Code asks you to approve it first, and that write is the demo, so accept it. Then `/exit`, run the same command, ask `where were we?`. The answer comes from the hook, not from a file the agent opened. `git checkout -- demo/homelab/handoff.md` resets it.
 
 ## The contract
 
@@ -84,7 +84,9 @@ Say `Keep the daily snapshots for the year, that's decided. I'm going to restart
 
 ## Where the handoff lives
 
-An agent in `/home/alice/work/acme/api` reads `~/.claude/handoffs/work-acme-api-32817b.md` by default. That name is the working directory relative to your home, separators turned into dashes, and a short digest of the full path on the end. `session-start-handoff.sh --path` prints it for the directory you run it in.
+An agent in `/home/alice/work/acme/api` reads `~/.local/state/persistent-handoff/work-acme-api-32817b.md` by default. That name is the working directory relative to your home, separators turned into dashes, and a short digest of the full path on the end. `session-start-handoff.sh --path` prints it for the directory you run it in. Set `XDG_STATE_HOME` and the directory follows it.
+
+Not `~/.claude`, which Claude Code protects: writing there prompts you, and the agent is supposed to write its handoff at a milestone without asking. 0.2.x put the file there, and the hook still reads it while it is the only one. [Moving it](CHANGELOG.md#moving-a-handoff-written-by-02x) is two commands.
 
 An agent not tied to one directory pins `PERSISTENT_HANDOFF_FILE` to an absolute path. [`docs/REFERENCE.md`](docs/REFERENCE.md) covers the expansion trap in doing that, what the digest does and doesn't guarantee, several sessions on one path, and Claude Code's 10,000 character cap on hook output.
 
@@ -100,7 +102,7 @@ An agent not tied to one directory pins `PERSISTENT_HANDOFF_FILE` to an absolute
 
 **My agent is a coding session I close at the end of the day. Do I want this?** Depends what you reopen tomorrow. A one-off task you finish and never come back to: no, use a disposable handoff. The same project every morning: yes. `/clear` and the end of the day kill your thread the same way a nightly restart kills mine, and the file is what survives both.
 
-**I deleted the project. Is its handoff still there?** Yes. Nothing prunes `~/.claude/handoffs/`. The hook puts no date in the preamble, so date the content the way the example does.
+**I deleted the project. Is its handoff still there?** Yes. Nothing prunes `~/.local/state/persistent-handoff/`. The hook puts no date in the preamble, so date the content the way the example does.
 
 **What does it cost on every session start?** 10 to 25 ms. Zero tokens when no handoff exists, 400 to 600 with one.
 
@@ -116,9 +118,9 @@ Many handoff skills exist for Claude Code. This one keeps a single file, rewritt
 
 ## Tests
 
-`bash tests/hook.sh`: 37 cases on the hook's failure modes and its two preambles. `bash tests/manifests.sh`: 14 cases pinning the plugin manifests and holding the `SessionStart` block to one shape in its three copies (plugin, demo, hand-install snippet in [`docs/INSTALL.md`](docs/INSTALL.md)).
+`bash tests/hook.sh`: 41 cases on the hook's failure modes, its two preambles and the path it derives. `bash tests/manifests.sh`: 16 cases pinning the plugin manifests, holding the `SessionStart` block to one shape in its three copies (plugin, demo, hand-install snippet in [`docs/INSTALL.md`](docs/INSTALL.md)), and running the demo's own hook command on the tree as cloned.
 
-[CI](.github/workflows/tests.yml) runs both suites on Ubuntu, macOS and Windows, on every pull request, every push to `main` and on demand. 51 assertions per OS, minus three on Windows where NTFS won't stage a `chmod 000` that denies a read, a `chmod 555` directory or a dangling symlink (the suite prints how many it skipped). The same workflow runs `./demo/setup.sh`, calls the installed hook the way the demo's `settings.json` does, and runs `shellcheck` on the Linux leg.
+[CI](.github/workflows/tests.yml) runs both suites on Ubuntu, macOS and Windows, on every pull request, every push to `main` and on demand. 57 assertions per OS, minus three on Windows where NTFS won't stage a `chmod 000` that denies a read, a `chmod 555` directory or a dangling symlink (the suite prints how many it skipped). The same workflow runs `./demo/setup.sh` and runs `shellcheck` on the Linux leg.
 
 ## License
 
