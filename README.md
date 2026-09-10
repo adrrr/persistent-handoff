@@ -118,7 +118,7 @@ Many handoff skills exist for Claude Code. This one keeps a single file, rewritt
 
 ## Tests
 
-`bash tests/hook.sh`: 43 cases on the hook's failure modes, its two preambles and the path it derives. `bash tests/manifests.sh`: 16 cases pinning the plugin manifests, holding the `SessionStart` block to one shape in its three copies (plugin, demo, hand-install snippet in [`docs/INSTALL.md`](docs/INSTALL.md)), and running the demo's own hook command on the tree as cloned.
+`bash tests/hook.sh`: 47 cases on the hook's failure modes, its two preambles and the path it derives. `bash tests/manifests.sh`: 16 cases pinning the plugin manifests, holding the `SessionStart` block to one shape in its three copies (plugin, demo, hand-install snippet in [`docs/INSTALL.md`](docs/INSTALL.md)), and running the demo's own hook command on the tree as cloned.
 
 [CI](.github/workflows/tests.yml) runs both suites on Ubuntu, macOS and Windows, on every pull request, every push to `main` and on demand. 59 assertions per OS, minus three on Windows where NTFS won't stage a `chmod 000` that denies a read, a `chmod 555` directory or a dangling symlink (the suite prints how many it skipped). The same workflow runs `./demo/setup.sh` and runs `shellcheck` on the Linux leg.
 

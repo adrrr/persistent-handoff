@@ -35,17 +35,23 @@
 
 set -uo pipefail
 
-# Past this many characters, the handoff is injected under one line naming its
-# size and asking for a prune. The skill says a handoff is state and not a
-# journal, and nothing made that true: a file that only grows is read at every
-# session start until a session starts skipping it. Nothing is pruned here.
-# Deciding what is resolved means reading the work, which is the session's job.
+# Past this many bytes, the handoff is injected under one line naming its size
+# and asking for a prune. The skill says a handoff is state and not a journal,
+# and nothing made that true: a file that only grows is read at every session
+# start until a session starts skipping it. Nothing is pruned here. Deciding
+# what is resolved means reading the work, which is the session's job.
 #
-# 8000 is where the line still arrives whole. Claude Code caps a hook's output
-# at 10,000 characters, and past that the session gets a truncated preview
-# instead, so a threshold set nearer the cap would first be shown to the session
-# in pieces, or not at all.
-HANDOFF_WARN_CHARS=8000
+# Bytes, not characters, and the line says so. ${#body} counts characters in a
+# UTF-8 locale and bytes in the C locale, so the same accented handoff crossed
+# this threshold on one machine and not on the next, and reported a size that
+# was off by a factor of two. Same reason the digest below uses cksum.
+#
+# 8000 is four times the size the skill asks a handoff to be, so the line fires
+# at a size that is a journal by any reading rather than on a judgement call.
+# It is also below Claude Code's 10,000 character cap on hook output, which
+# means the first handoff to trip the line is still injected whole: the ask to
+# prune arrives while there is a full handoff behind it, not a preview.
+HANDOFF_WARN_BYTES=8000
 
 # --path prints the handoff path for the current directory and exits, without
 # reading stdin. The derived name ends in a digest of the full path, so an agent
@@ -240,14 +246,17 @@ body=$(cat "$handoff_file" 2>/dev/null) || body=""
 # everywhere else.
 case $body in *[![:space:]]*) ;; *) exit 0 ;; esac
 
-# Measured on the text about to be injected rather than on the file: that is what
-# the session pays for, and it is one expansion rather than a subprocess whose
-# output has to be trimmed differently on each platform.
+# The file is measured, not $body: the two differ by the trailing newline every
+# editor leaves, and a line that states a size has to state the one a human gets
+# from ls or wc. tr rather than a bare expansion because wc pads its count with
+# leading blanks on the BSD side, which would land in the middle of the line.
 size_note=""
-if [ "${#body}" -gt "$HANDOFF_WARN_CHARS" ]; then
+size_bytes=$(wc -c < "$handoff_file" 2>/dev/null | tr -cd '0-9')
+[ -n "$size_bytes" ] || size_bytes=0
+if [ "$size_bytes" -gt "$HANDOFF_WARN_BYTES" ]; then
   size_note="
 
-This file is ${#body} characters, over the $HANDOFF_WARN_CHARS a handoff stays under. Prune what is resolved before you go further."
+This file is $size_bytes bytes, over the $HANDOFF_WARN_BYTES a handoff stays under. Prune what is resolved before you go further."
 fi
 
 # An unknown source takes the fresh-start preamble too. Asserting a precedence

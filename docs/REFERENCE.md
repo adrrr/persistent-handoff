@@ -38,9 +38,13 @@ Claude Code caps a hook's output at 10,000 characters and injects a truncated pr
 
 ## The size line
 
-Past 8,000 characters the handoff is injected under one more line, naming its size and asking for a prune. It costs 110 characters plus the size, and appears only past the threshold.
+Past 8,000 bytes the handoff is injected under one more line, naming its size and asking for a prune. It costs 105 characters plus the size, and appears only past the threshold.
 
-The hook prunes nothing and deletes nothing. Which lines are resolved is a question about the work, and the session that reads the handoff is the one that can answer it. The threshold is `HANDOFF_WARN_CHARS` at the top of the hook, a constant rather than a setting, and it sits below the cap so the line itself still arrives whole rather than inside a truncated preview.
+Bytes, and the line says bytes, because a count of characters is not the same number on every machine: a shell counts characters under a UTF-8 locale and bytes under the C locale, and an accented handoff would cross the threshold on one machine and not on the next. The size is the file's, the one `wc -c` and `ls` report.
+
+The hook prunes nothing and deletes nothing. Which lines are resolved is a question about the work, and the session that reads the handoff is the one that can answer it. The threshold is `HANDOFF_WARN_BYTES` at the top of the hook, a constant rather than a setting.
+
+8,000 is four times the size the skill asks a handoff to be, so the line waits for a file that is a journal by any reading rather than firing on a judgement call. It also leaves the first handoff that trips it under the cap, so the ask to prune arrives with a whole handoff behind it. The line is written above the handoff and is never the part that gets truncated, but it does add its own length to the output, which moves the size at which truncation starts down by those 105 characters.
 
 ## Repeated resumes do not stack copies
 
