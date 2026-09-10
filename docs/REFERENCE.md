@@ -36,6 +36,16 @@ Three sessions in one directory are one agent, and the last writer wins. Writing
 
 Claude Code caps a hook's output at 10,000 characters and injects a truncated preview plus a path past that. The limit is Claude Code's and can move in a release without warning. The preamble takes 259 characters plus the path on a fresh start, 404 to 407 after a compact, a resume or a fork. The notice about a handoff left at the old path is 308 characters plus the two paths, and replaces the preamble rather than adding to it. A handoff of 300 to 500 tokens sits far below the cap. One grown into a journal arrives as a preview.
 
+## The size line
+
+Past 8,000 bytes the handoff is injected under one more line, naming its size and asking for a prune. It costs 105 characters plus the size, and appears only past the threshold.
+
+Bytes, and the line says bytes, because a count of characters is not the same number on every machine: a shell counts characters under a UTF-8 locale and bytes under the C locale, and an accented handoff would cross the threshold on one machine and not on the next. The size is the file's, the one `wc -c` and `ls` report.
+
+The hook prunes nothing and deletes nothing. Which lines are resolved is a question about the work, and the session that reads the handoff is the one that can answer it. The threshold is `HANDOFF_WARN_BYTES` at the top of the hook, a constant rather than a setting.
+
+8,000 is four times the size the skill asks a handoff to be, so the line waits for a file that is a journal by any reading rather than firing on a judgement call. It also leaves the first handoff that trips it under the cap, so the ask to prune arrives with a whole handoff behind it. The line is written above the handoff and is never the part that gets truncated, but it does add its own length to the output, which moves the size at which truncation starts down by those 105 characters.
+
 ## Repeated resumes do not stack copies
 
 Claude Code drops a `SessionStart` `additionalContext` whose exact text is already in the reloaded transcript. The two preambles are different strings, so a session started fresh and then resumed carries both, and every later resume is deduplicated as long as the file doesn't change. This is read out of the 2.1.251 binary and documented nowhere, take it as an observation.

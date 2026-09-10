@@ -5,6 +5,19 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- A handoff over 8,000 bytes is injected under one line naming its size and
+  asking for a prune. The skill says a handoff is state and not a journal, and
+  nothing made that true: a file that only grows is read at every session start
+  until a session starts skipping it. Nothing is pruned automatically, deciding
+  what is resolved means reading the work. The threshold is a constant at the
+  top of the hook, four times the size the skill asks for and under Claude
+  Code's 10,000 character cap on hook output.
+- `tests/hook.sh`: 43 cases to 47. The size line above the handoff and on both
+  preambles, silence at exactly the threshold, and a size that does not move
+  with the locale.
+
 ## [0.3.0] - 2026-09-06
 
 ### Changed

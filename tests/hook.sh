@@ -590,6 +590,70 @@ slash=$(cd "$HOME_DIR/proj-alpha" && HOME="$HOME_DIR" XDG_STATE_HOME="$HOME_DIR/
   && ok "43 XDG_STATE_HOME: a relative value is ignored, a trailing slash does not double" \
   || ko "43 (relative=<$rel> trailing-slash=<$slash> expected=<$WANT>)"
 
+# 44. A handoff that grew into a journal is told its own size. The skill says
+# prune on every update, and nothing made that true: a file that only grows is
+# read at every session start until a session skips it. The line is advisory,
+# the hook prunes nothing, and the handoff still comes through whole.
+#
+# The line's position is the contract, not just its text: it is read before the
+# handoff, and it is what survives when Claude Code truncates the output of a
+# hook. Asserting it sits on line 3, with the handoff below it, is what tells a
+# line moved under the body from a line that is merely present somewhere.
+BIG_DIR=$HOME_DIR/proj-big
+BIG_FILE=$STATE/proj-big-$(digest_of "$BIG_DIR").md
+mkdir -p "$BIG_DIR"
+# "MARKER\n" is 7 bytes and the trailing newline is the 8001st: one past the
+# threshold, which is where a -ge would pass and a -gt is meant to. The file
+# ends in a newline the way any editor leaves it, so this also holds the count
+# to the file rather than to the body the hook reads, which drops that newline.
+{ printf 'MARKER\n'; printf '%*s' 7993 '' | tr ' ' x; printf '\n'; } > "$BIG_FILE"
+WANT_LINE='This file is 8001 bytes, over the 8000 a handoff stays under. Prune what is resolved before you go further.'
+c=$(payload_for "$BIG_DIR" | HOME="$HOME_DIR" "$HOOK" | jq -r '.hookSpecificOutput.additionalContext')
+if [ "$(printf '%s\n' "$c" | sed -n '3p')" = "$WANT_LINE" ] \
+   && [ "$(printf '%s\n' "$c" | sed -n '5p')" = "MARKER" ] \
+   && printf '%s' "$c" | grep -q 'state the previous session left behind'; then
+  ok "44 a handoff over 8000 bytes is told its size, above the handoff, which is still injected"
+else
+  ko "44 (ctx=<$(printf '%s' "$c" | head -c 400)>)"
+fi
+
+# 45. A compact, a resume and a fork read the same file and take the other
+# preamble. A file that grew is the same file whichever start reads it.
+c=$(printf '{"session_id":"abc","cwd":"%s","hook_event_name":"SessionStart","source":"compact"}' "$BIG_DIR" \
+  | HOME="$HOME_DIR" "$HOOK" | jq -r '.hookSpecificOutput.additionalContext')
+[ "$(printf '%s\n' "$c" | sed -n '3p')" = "$WANT_LINE" ] \
+  && ok "45 the size line is on the compact, resume and fork preamble too" \
+  || ko "45 (ctx=<$(printf '%s' "$c" | head -c 400)>)"
+
+# 46. Exactly at the threshold is silent. The size line costs context of its own
+# and repeats at every session start, so the boundary has to be a size a handoff
+# is allowed to be, not one it is nagged about.
+{ printf 'MARKER\n'; printf '%*s' 7992 '' | tr ' ' x; printf '\n'; } > "$BIG_FILE"
+c=$(payload_for "$BIG_DIR" | HOME="$HOME_DIR" "$HOOK" | jq -r '.hookSpecificOutput.additionalContext')
+if ! printf '%s' "$c" | grep -q 'bytes, over the' \
+   && printf '%s' "$c" | grep -q 'MARKER'; then
+  ok "46 a handoff of exactly 8000 bytes says nothing about its size"
+else
+  ko "46 (ctx=<$(printf '%s' "$c" | head -c 400)>)"
+fi
+
+# 47. The size is in bytes, and the same file has to give the same answer on
+# every machine. ${#body} counts characters under a UTF-8 locale and bytes under
+# the C locale, so this handoff, 4100 characters and 8193 bytes, tripped the
+# threshold on one machine and passed on the next, reporting a size off by a
+# factor of two on the one where it spoke. The two locales are named rather than
+# inherited, and neither has to exist: an unknown LC_ALL falls back to C, which
+# is one of the two cases under test.
+{ printf 'MARKER\n'; i=0; while [ "$i" -lt 4093 ]; do printf '\303\251'; i=$((i + 1)); done; } > "$BIG_FILE"
+utf8_ok=1
+for loc in C en_US.UTF-8; do
+  c=$(payload_for "$BIG_DIR" | LC_ALL="$loc" HOME="$HOME_DIR" "$HOOK" | jq -r '.hookSpecificOutput.additionalContext')
+  printf '%s\n' "$c" | sed -n '3p' | grep -q '^This file is 8193 bytes, over the 8000 ' || utf8_ok=0
+done
+[ "$utf8_ok" -eq 1 ] \
+  && ok "47 the size is bytes, and does not move with the locale" \
+  || ko "47 (ctx=<$(printf '%s' "$c" | head -c 400)>)"
+
 echo "---"
 [ "$skipped" -eq 0 ] || echo "$skipped case(s) skipped: they asserted nothing here"
 [ "$fail" -eq 0 ] && echo "ALL TESTS PASS" || echo "SOME TESTS FAILED"
