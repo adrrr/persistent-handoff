@@ -590,6 +590,45 @@ slash=$(cd "$HOME_DIR/proj-alpha" && HOME="$HOME_DIR" XDG_STATE_HOME="$HOME_DIR/
   && ok "43 XDG_STATE_HOME: a relative value is ignored, a trailing slash does not double" \
   || ko "43 (relative=<$rel> trailing-slash=<$slash> expected=<$WANT>)"
 
+# 44. A handoff that grew into a journal is told its own size. The skill says
+# prune on every update, and nothing made that true: a file that only grows is
+# read at every session start until a session skips it. The line is advisory,
+# the hook prunes nothing, and the handoff still comes through whole.
+BIG_DIR=$HOME_DIR/proj-big
+mkdir -p "$BIG_DIR"
+# MARKER plus a newline is 7 characters, so the file is 8001: one past the
+# threshold, which is where a -ge would pass and a -gt is meant to.
+big=$(printf 'MARKER\n%*s' 7994 '' | tr ' ' x)
+handoff_for "$BIG_DIR" proj-big "$big"
+c=$(payload_for "$BIG_DIR" | HOME="$HOME_DIR" "$HOOK" | jq -r '.hookSpecificOutput.additionalContext')
+if printf '%s' "$c" | grep -q 'This file is 8001 characters, over the 8000 a handoff stays under. Prune what is resolved before you go further.' \
+   && printf '%s' "$c" | grep -q 'MARKER' \
+   && printf '%s' "$c" | grep -q 'state the previous session left behind'; then
+  ok "44 a handoff over 8000 characters is told its size, and still injected"
+else
+  ko "44 (ctx=<$(printf '%s' "$c" | head -c 400)>)"
+fi
+
+# A compact, a resume and a fork read the same file and take the other preamble.
+# A file that grew is the same file whichever start reads it.
+c=$(printf '{"session_id":"abc","cwd":"%s","hook_event_name":"SessionStart","source":"compact"}' "$BIG_DIR" \
+  | HOME="$HOME_DIR" "$HOOK" | jq -r '.hookSpecificOutput.additionalContext')
+printf '%s' "$c" | grep -q 'This file is 8001 characters, over the 8000' \
+  && ok "44b the size line is on the compact, resume and fork preamble too" \
+  || ko "44b (ctx=<$(printf '%s' "$c" | head -c 400)>)"
+
+# 45. Exactly at the threshold is silent. The size line costs context of its own
+# and repeats at every session start, so the boundary has to be a size a handoff
+# is allowed to be, not one it is nagged about.
+printf 'MARKER\n%*s' 7993 '' | tr ' ' x > "$STATE/proj-big-$(digest_of "$BIG_DIR").md"
+c=$(payload_for "$BIG_DIR" | HOME="$HOME_DIR" "$HOOK" | jq -r '.hookSpecificOutput.additionalContext')
+if ! printf '%s' "$c" | grep -q 'characters, over the' \
+   && printf '%s' "$c" | grep -q 'MARKER'; then
+  ok "45 a handoff of exactly 8000 characters says nothing about its size"
+else
+  ko "45 (ctx=<$(printf '%s' "$c" | head -c 400)>)"
+fi
+
 echo "---"
 [ "$skipped" -eq 0 ] || echo "$skipped case(s) skipped: they asserted nothing here"
 [ "$fail" -eq 0 ] && echo "ALL TESTS PASS" || echo "SOME TESTS FAILED"

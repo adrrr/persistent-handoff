@@ -35,6 +35,18 @@
 
 set -uo pipefail
 
+# Past this many characters, the handoff is injected under one line naming its
+# size and asking for a prune. The skill says a handoff is state and not a
+# journal, and nothing made that true: a file that only grows is read at every
+# session start until a session starts skipping it. Nothing is pruned here.
+# Deciding what is resolved means reading the work, which is the session's job.
+#
+# 8000 is where the line still arrives whole. Claude Code caps a hook's output
+# at 10,000 characters, and past that the session gets a truncated preview
+# instead, so a threshold set nearer the cap would first be shown to the session
+# in pieces, or not at all.
+HANDOFF_WARN_CHARS=8000
+
 # --path prints the handoff path for the current directory and exits, without
 # reading stdin. The derived name ends in a digest of the full path, so an agent
 # writing its first handoff cannot work the name out by hand. It asks here, and
@@ -228,17 +240,27 @@ body=$(cat "$handoff_file" 2>/dev/null) || body=""
 # everywhere else.
 case $body in *[![:space:]]*) ;; *) exit 0 ;; esac
 
+# Measured on the text about to be injected rather than on the file: that is what
+# the session pays for, and it is one expansion rather than a subprocess whose
+# output has to be trimmed differently on each platform.
+size_note=""
+if [ "${#body}" -gt "$HANDOFF_WARN_CHARS" ]; then
+  size_note="
+
+This file is ${#body} characters, over the $HANDOFF_WARN_CHARS a handoff stays under. Prune what is resolved before you go further."
+fi
+
 # An unknown source takes the fresh-start preamble too. Asserting a precedence
 # over a context whose shape this hook does not know is worse than asserting
 # none, and a sixth source added upstream lands here first.
 case $start_source in
   compact|resume|fork)
-    emit "Persistent handoff, read back after a $start_source, from $handoff_file. Your context above is newer than this file for what you did in this session; the file is the reference for everything else. If they disagree, update the file. The file is state, not a conversation summary. Start from \"Next action\". Update the file at the next milestone, remove from it whatever you resolve, and delete it when nothing is left in flight.
+    emit "Persistent handoff, read back after a $start_source, from $handoff_file. Your context above is newer than this file for what you did in this session; the file is the reference for everything else. If they disagree, update the file. The file is state, not a conversation summary. Start from \"Next action\". Update the file at the next milestone, remove from it whatever you resolve, and delete it when nothing is left in flight.$size_note
 
 $body"
     ;;
   *)
-    emit "Persistent handoff, read from $handoff_file. This is the state the previous session left behind, not a conversation summary. Start from \"Next action\". Update the file at the next milestone, remove from it whatever you resolve, and delete it when nothing is left in flight.
+    emit "Persistent handoff, read from $handoff_file. This is the state the previous session left behind, not a conversation summary. Start from \"Next action\". Update the file at the next milestone, remove from it whatever you resolve, and delete it when nothing is left in flight.$size_note
 
 $body"
     ;;
