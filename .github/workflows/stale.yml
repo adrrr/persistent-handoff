@@ -1,0 +1,27 @@
+name: stale
+on:
+  schedule:
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+permissions:
+  issues: write
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11.0.0
+        with:
+          days-before-issue-stale: 90
+          days-before-issue-close: 14
+          days-before-pr-stale: -1
+          days-before-pr-close: -1
+          any-of-issue-labels: 'p:later'
+          exempt-issue-labels: 'p:now,p:next,security,rolling,routine-ok,question,help wanted,good first issue'
+          stale-issue-label: 'stale'
+          stale-issue-message: >-
+            No activity for 90 days, so this is marked stale. A comment clears
+            the mark. Without one it closes in 14 days.
+          close-issue-message: >-
+            Closed after 14 more days without activity. If it still matters,
+            say so here and it can be reopened.
+          operations-per-run: 100
