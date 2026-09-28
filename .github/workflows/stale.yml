@@ -20,9 +20,8 @@ jobs:
           stale-issue-label: 'stale'
           stale-issue-message: >-
             No activity for 90 days, so this is marked stale. A comment clears
-            the mark. Without one it closes in 14 days, and you can reopen it
-            any time.
+            the mark. Without one it closes in 14 days.
           close-issue-message: >-
-            Closed after 14 more days without activity. Reopen it if it still
-            matters to you.
+            Closed after 14 more days without activity. If it still matters,
+            say so here and it can be reopened.
           operations-per-run: 100
