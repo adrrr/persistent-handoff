@@ -5,6 +5,19 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- An opt-in `UserPromptSubmit` hook, `hooks/prompt-submit-handoff.sh` (#7).
+  With `PERSISTENT_HANDOFF_WARN_TOKENS` set, it reads the context size from the
+  last assistant entry of the transcript. Past that size, it tells the session
+  to bring its handoff current before a compaction drops what lives only in the
+  context. It fires once per crossing: a marker directory per session under
+  `$TMPDIR` keeps it quiet until the size drops back under. The path comes from
+  `session-start-handoff.sh --path`. Unset, the hook exits on its first test.
+  `PreCompact` was the first idea, but its output can only block a compaction,
+  it cannot add anything to it or to the context.
+- `tests/hook.sh`: 47 cases to 58. `tests/manifests.sh`: 16 cases to 17.
+
 ## [0.3.1] - 2026-09-11
 
 ### Added
