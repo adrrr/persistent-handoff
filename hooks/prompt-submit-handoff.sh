@@ -43,7 +43,10 @@ case $threshold in ''|*[!0-9]*) exit 0 ;; esac
 command -v jq >/dev/null 2>&1 || exit 0
 
 payload=$(cat)
-fields=$(printf '%s' "$payload" | jq -r '(.session_id // ""), (.transcript_path // ""), (.cwd // "")' 2>/dev/null) || exit 0
+# Three values on three lines. A native jq.exe under Git Bash ends each line in
+# CRLF, and the command substitution strips only the last newline, so the CRs
+# go here or the transcript path carries one and is never found.
+fields=$(printf '%s' "$payload" | jq -r '(.session_id // ""), (.transcript_path // ""), (.cwd // "")' 2>/dev/null | tr -d '\r') || exit 0
 { IFS= read -r session_id; IFS= read -r transcript; IFS= read -r cwd; } <<EOF
 $fields
 EOF
@@ -57,7 +60,7 @@ tokens=$(tail -n 400 "$transcript" 2>/dev/null | jq -R '
   elif .type == "assistant" and .isSidechain != true and .message.model != "<synthetic>"
     and .message.usage != null then
     .message.usage | (.input_tokens // 0) + (.cache_creation_input_tokens // 0) + (.cache_read_input_tokens // 0)
-  else empty end' 2>/dev/null | tail -n 1)
+  else empty end' 2>/dev/null | tr -d '\r' | tail -n 1)
 case $tokens in ''|*[!0-9]*) exit 0 ;; esac
 
 session_id=$(printf '%s' "$session_id" | tr -cd 'A-Za-z0-9_-')
