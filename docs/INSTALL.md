@@ -73,7 +73,7 @@ Then wire it in the same `settings.json`, next to the block above:
 }
 ```
 
-It does nothing until `PERSISTENT_HANDOFF_WARN_TOKENS` is set. The [FAQ](../README.md#faq) has the setting.
+It does nothing until `PERSISTENT_HANDOFF_WARN_TOKENS` is set. The [FAQ](../README.md#faq) has the setting. If your `SessionStart` command sets `PERSISTENT_HANDOFF_FILE` inline, set it the same way in this command, or the reminder names the derived path instead of yours.
 
 ## Do not run both installs
 

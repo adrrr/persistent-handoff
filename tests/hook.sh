@@ -13,6 +13,9 @@ HOME_DIR="$TMP/home"
 # it would send every staged handoff somewhere the assertions do not look.
 unset PERSISTENT_HANDOFF_FILE
 unset XDG_STATE_HOME
+# Claude Code exports the directory the session started in to every hook, and
+# the prompt hook (cases 48 on) prefers it over the payload's cwd.
+unset CLAUDE_PROJECT_DIR
 # Where the derived name lands, and where it used to land. The old
 # directory is created empty and stays empty: cases 1 to 37 then also say that an
 # upgraded machine with nothing left in it behaves like a machine that never had
@@ -770,6 +773,37 @@ printf '{"type":"system","subtype":"compact_boundary","content":"Conversation co
 prun s58 100000
 [ "$prc" -eq 0 ] && [ -z "$out" ] \
   && ok "58 prompt hook: silent between a compaction and the next reply" || ko "58 (out=<$out>)"
+
+# 59. The handoff is the one the session started with. The payload's cwd moves
+# when the session runs cd, CLAUDE_PROJECT_DIR stays where it started, and a
+# reminder that named the subdirectory's path would get a second handoff written
+# that no session start ever reads.
+mkdir -p "$PDIR/sub"
+transcript_of 150000
+out=$(printf '{"session_id":"s59","transcript_path":"%s","cwd":"%s/sub","hook_event_name":"UserPromptSubmit","prompt":"x"}' "$TRANSCRIPT" "$PDIR" \
+  | HOME="$HOME_DIR" TMPDIR="$TMP/tmpdir" PERSISTENT_HANDOFF_WARN_TOKENS=100000 CLAUDE_PROJECT_DIR="$PDIR" "$PHOOK")
+printf '%s' "$out" | jq -r '.hookSpecificOutput.additionalContext' 2>/dev/null | grep -qF "$PDIR_HANDOFF" \
+  && ok "59 prompt hook: names the handoff of CLAUDE_PROJECT_DIR, not of a cd" || ko "59 (out=<$out>)"
+
+# 60. An API error lands in the transcript as an assistant entry from the model
+# "<synthetic>" with a usage of zero. It says nothing about the context, and
+# reading it as a size of 0 would rearm the reminder mid-session.
+transcript_of 150000; prun s60 100000; o1=$out
+transcript_of 150000
+printf '{"type":"assistant","isSidechain":false,"isApiErrorMessage":true,"message":{"model":"<synthetic>","usage":{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}\n' >> "$TRANSCRIPT"
+prun s60 100000; o2=$out
+transcript_of 150000
+printf '{"type":"assistant","isSidechain":false,"isApiErrorMessage":true,"message":{"model":"<synthetic>","usage":{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}\n' >> "$TRANSCRIPT"
+printf '{"type":"assistant","isSidechain":false,"message":{"usage":{"input_tokens":152000}}}\n' >> "$TRANSCRIPT"
+prun s60 100000
+[ -n "$o1" ] && [ -z "$o2" ] && [ -z "$out" ] \
+  && ok "60 prompt hook: an API error entry is not a size" || ko "60 (first=<$o1> error=<$o2> after=<$out>)"
+
+# 61. A threshold too long for shell arithmetic is refused, not compared. The
+# test builtin fails on it, and a failed comparison used to read as "over".
+transcript_of 5; prun s61 99999999999999999999
+[ "$prc" -eq 0 ] && [ -z "$out" ] \
+  && ok "61 prompt hook: a threshold past 18 digits turns it off" || ko "61 (out=<$out>)"
 
 echo "---"
 [ "$skipped" -eq 0 ] || echo "$skipped case(s) skipped: they asserted nothing here"

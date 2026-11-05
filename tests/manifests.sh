@@ -177,6 +177,16 @@ case $cmd in
   *) ko "17 (command=<$cmd>)" ;;
 esac
 
+# 18. The hand-install snippet for the reminder matches the plugin's entry: one
+# UserPromptSubmit entry, no matcher, the same script.
+snippet=$(awk '/^```json$/{b=1;s="";next} b&&/^```$/{if(s~/UserPromptSubmit/){print s;exit} b=0;s="";next} b{s=s $0 "\n"}' "$DOC")
+if printf '%s' "$snippet" | jq -e '.hooks.UserPromptSubmit | length == 1 and all(has("matcher") | not)
+    and (.[0].hooks[0].command | endswith("/prompt-submit-handoff.sh"))' >/dev/null 2>&1; then
+  ok "18 install doc: UserPromptSubmit snippet, one entry, no matcher, same script"
+else
+  ko "18 (install doc=$(printf '%s' "$snippet" | jq -c '.hooks.UserPromptSubmit' 2>&1))"
+fi
+
 echo "---"
 [ "$fail" -eq 0 ] && echo "ALL TESTS PASS" || echo "SOME TESTS FAILED"
 exit "$fail"
