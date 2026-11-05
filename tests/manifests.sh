@@ -163,6 +163,30 @@ out=$(printf '%s' "$payload" | ( cd "$DEMODIR" && export CLAUDE_PROJECT_DIR="$DE
   && ok "16 demo command runs on a bare clone and returns the handoff" \
   || ko "16 (rc=$rc out=<$out>)"
 
+# 17. The opt-in reminder ships wired: one UserPromptSubmit entry, no matcher,
+# through ${CLAUDE_PLUGIN_ROOT}, at a script that exists and is executable. It
+# stays silent until PERSISTENT_HANDOFF_WARN_TOKENS is set, so wiring it costs a
+# user who never sets it one short process per prompt and nothing else.
+cmd=$(jq -r 'if (.hooks.UserPromptSubmit | length) == 1 and (.hooks.UserPromptSubmit[0] | has("matcher") | not)
+  then .hooks.UserPromptSubmit[0].hooks[0].command else empty end' "$HOOKS" 2>/dev/null)
+case $cmd in
+  *'${CLAUDE_PLUGIN_ROOT}'*hooks/prompt-submit-handoff.sh)
+    [ -x "$ROOT/hooks/prompt-submit-handoff.sh" ] \
+      && ok "17 UserPromptSubmit reminder wired through \${CLAUDE_PLUGIN_ROOT}, script executable" \
+      || ko "17 (script not executable)" ;;
+  *) ko "17 (command=<$cmd>)" ;;
+esac
+
+# 18. The hand-install snippet for the reminder matches the plugin's entry: one
+# UserPromptSubmit entry, no matcher, the same script.
+snippet=$(awk '/^```json$/{b=1;s="";next} b&&/^```$/{if(s~/UserPromptSubmit/){print s;exit} b=0;s="";next} b{s=s $0 "\n"}' "$DOC")
+if printf '%s' "$snippet" | jq -e '.hooks.UserPromptSubmit | length == 1 and all(has("matcher") | not)
+    and (.[0].hooks[0].command | endswith("/prompt-submit-handoff.sh"))' >/dev/null 2>&1; then
+  ok "18 install doc: UserPromptSubmit snippet, one entry, no matcher, same script"
+else
+  ko "18 (install doc=$(printf '%s' "$snippet" | jq -c '.hooks.UserPromptSubmit' 2>&1))"
+fi
+
 echo "---"
 [ "$fail" -eq 0 ] && echo "ALL TESTS PASS" || echo "SOME TESTS FAILED"
 exit "$fail"

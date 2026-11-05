@@ -53,7 +53,7 @@ The demo's handoff. `./demo/setup.sh` puts it in a project you can open. 300 to 
 claude plugin marketplace add adrrr/persistent-handoff && claude plugin install persistent-handoff@persistent-handoff
 ```
 
-The repo is its own plugin marketplace, so that one command adds it, installs the plugin and wires the `SessionStart` hook.
+The repo is its own plugin marketplace, so that one command adds it, installs the plugin and wires the `SessionStart` hook. It also wires a `UserPromptSubmit` hook that does nothing until you [turn it on](#faq).
 
 Needs Claude Code 2.1.69 or newer (tested on 2.1.251, [details](docs/INSTALL.md#claude-code-version)) and `bash` on `PATH`. [Windows](docs/INSTALL.md#windows): WSL, or [Git for Windows](https://git-scm.com/downloads/win) installed first. [`docs/INSTALL.md`](docs/INSTALL.md) has the in-session commands, uninstall, the hand install and the upgrade notes. Nothing happens until a handoff exists, the hook is silent when the file is missing or blank.
 
@@ -96,6 +96,8 @@ An agent not tied to one directory pins `PERSISTENT_HANDOFF_FILE` to an absolute
 
 **What happens after a compact or a resume?** The hook fires there too, about 500 tokens, so the handoff is present whatever the summary kept. The preamble says your context wins for what you did in this session and the file for everything else. If they disagree, update the file. Repeated resumes don't stack copies ([`docs/REFERENCE.md`](docs/REFERENCE.md#repeated-resumes-do-not-stack-copies)).
 
+**Can it remind the agent before a compact?** Yes, if you turn it on. Run `export PERSISTENT_HANDOFF_WARN_TOKENS=150000` before you start `claude`. Once the context passes 150,000 tokens, the next prompt carries a reminder to bring the handoff current. It fires once, and again only after the context drops back under, after a compact for example. The size comes from the transcript, so pick a number under the point where your sessions auto-compact. Unset, the hook does nothing. An auto-compact can still land in the middle of a tool call, before the agent gets a turn to write.
+
 **Why delete the file when it's empty?** Every session start reads it. A file that's always there, half stale, teaches every new session to skim it. If it exists, something is in flight. An agent whose work never ends prunes every update instead.
 
 **Why not just keep this in CLAUDE.md or the agent's memory?** Different lifetimes. CLAUDE.md and memory hold mechanisms, commands and preferences. The handoff holds what's in flight, and gets deleted when it lands.
@@ -118,9 +120,9 @@ Many handoff skills exist for Claude Code. This one keeps a single file, rewritt
 
 ## Tests
 
-`bash tests/hook.sh`: 47 cases on the hook's failure modes, its two preambles and the path it derives. `bash tests/manifests.sh`: 16 cases pinning the plugin manifests, holding the `SessionStart` block to one shape in its three copies (plugin, demo, hand-install snippet in [`docs/INSTALL.md`](docs/INSTALL.md)), and running the demo's own hook command on the tree as cloned.
+`bash tests/hook.sh`: 61 cases on the hook's failure modes, its two preambles, the path it derives and the reminder before a compact. `bash tests/manifests.sh`: 18 cases pinning the plugin manifests, holding the `SessionStart` block to one shape in its three copies (plugin, demo, hand-install snippet in [`docs/INSTALL.md`](docs/INSTALL.md)), and running the demo's own hook command on the tree as cloned.
 
-[CI](.github/workflows/tests.yml) runs both suites on Ubuntu, macOS and Windows, on every pull request, every push to `main` and on demand. 63 assertions per OS, minus three on Windows where NTFS won't stage a `chmod 000` that denies a read, a `chmod 555` directory or a dangling symlink (the suite prints how many it skipped). The same workflow runs `./demo/setup.sh` and runs `shellcheck` on the Linux leg.
+[CI](.github/workflows/tests.yml) runs both suites on Ubuntu, macOS and Windows, on every pull request, every push to `main` and on demand. 79 assertions per OS, minus three on Windows where NTFS won't stage a `chmod 000` that denies a read, a `chmod 555` directory or a dangling symlink (the suite prints how many it skipped). The same workflow runs `./demo/setup.sh` and runs `shellcheck` on the Linux leg.
 
 ## License
 

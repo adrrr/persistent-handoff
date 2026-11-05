@@ -45,9 +45,39 @@ Add it to `~/.claude/settings.json` or a project `.claude/settings.json`. In a r
 
 No `matcher`, so the hook runs on all five `SessionStart` sources, `startup`, `clear`, `compact`, `resume` and `fork`. It reads the source from the payload and switches its preamble on the last three, where the session already holds a context of its own.
 
+## The reminder before a compact
+
+Optional. Copy the second hook next to the first, since it asks the first one for the handoff path:
+
+```bash
+install -m 755 "$src"/hooks/prompt-submit-handoff.sh ~/.claude/hooks/
+```
+
+Then wire it in the same `settings.json`, next to the block above:
+
+```json
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME\"/.claude/hooks/prompt-submit-handoff.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+It does nothing until `PERSISTENT_HANDOFF_WARN_TOKENS` is set. The [FAQ](../README.md#faq) has the setting. If your `SessionStart` command sets `PERSISTENT_HANDOFF_FILE` inline, set it the same way in this command, or the reminder names the derived path instead of yours.
+
 ## Do not run both installs
 
-The plugin on top of this leaves two handlers and injects the handoff twice. Remove the `SessionStart` entry from your `settings.json` and delete `~/.claude/skills/persistent-handoff/` first.
+The plugin on top of this leaves two handlers and injects the handoff twice. Remove the `SessionStart` and `UserPromptSubmit` entries from your `settings.json` and delete `~/.claude/skills/persistent-handoff/` first.
 
 ## Windows
 
