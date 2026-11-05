@@ -775,9 +775,8 @@ prun s58 100000
   && ok "58 prompt hook: silent between a compaction and the next reply" || ko "58 (out=<$out>)"
 
 # 59. The handoff is the one the session started with. The payload's cwd moves
-# when the session runs cd, CLAUDE_PROJECT_DIR stays where it started, and a
-# reminder that named the subdirectory's path would get a second handoff written
-# that no session start ever reads.
+# when the session runs cd, CLAUDE_PROJECT_DIR stays where it started, and the
+# reminder names the file the startup SessionStart read, not the subdirectory's.
 mkdir -p "$PDIR/sub"
 transcript_of 150000
 out=$(printf '{"session_id":"s59","transcript_path":"%s","cwd":"%s/sub","hook_event_name":"UserPromptSubmit","prompt":"x"}' "$TRANSCRIPT" "$PDIR" \

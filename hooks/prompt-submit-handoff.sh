@@ -76,9 +76,10 @@ mkdir "$marker" 2>/dev/null || exit 0
 
 # The path comes from session-start-handoff.sh --path, so the rule that derives
 # it lives in one place. Run from CLAUDE_PROJECT_DIR, the directory the session
-# started in, which is where the session start read the handoff from. The
-# payload's cwd moves when the session runs cd, and naming the handoff of a
-# subdirectory would get a second file written that nothing reads. No path, no
+# started in, which is where the startup SessionStart read the handoff from. The
+# payload's cwd moves when the session runs cd, and a SessionStart after a
+# compact derives its path from that cwd: a session that has cd'ed gets this
+# file back at its next startup, not right after the compaction. No path, no
 # reminder, and the marker goes so the next prompt tries again.
 here=$(cd "${0%/*}" 2>/dev/null && pwd)
 handoff=$(cd "${CLAUDE_PROJECT_DIR:-${cwd:-$PWD}}" 2>/dev/null && "$here/session-start-handoff.sh" --path 2>/dev/null)
