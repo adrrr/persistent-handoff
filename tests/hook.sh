@@ -654,6 +654,123 @@ done
   && ok "47 the size is bytes, and does not move with the locale" \
   || ko "47 (ctx=<$(printf '%s' "$c" | head -c 400)>)"
 
+
+# Cases 48 to 57: hooks/prompt-submit-handoff.sh, the opt-in UserPromptSubmit
+# reminder. It reads the context size off the last main-chain assistant entry of
+# the transcript and, past PERSISTENT_HANDOFF_WARN_TOKENS, asks the session to
+# bring its handoff current. The transcripts below are invented, one assistant
+# entry per size given. TMPDIR is the suite's own: the hook keeps its one marker
+# per session there.
+PHOOK=$SCRIPT_DIR/../hooks/prompt-submit-handoff.sh
+PDIR=$HOME_DIR/proj-prompt
+mkdir -p "$PDIR" "$TMP/tmpdir"
+TRANSCRIPT=$TMP/transcript.jsonl
+transcript_of() { # <tokens>...: one user line, then one assistant line per size
+  local t
+  printf '{"type":"user","message":{"role":"user","content":"hello"}}\n' > "$TRANSCRIPT"
+  for t in "$@"; do
+    printf '{"type":"assistant","isSidechain":false,"message":{"role":"assistant","usage":{"input_tokens":%d,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":12}}}\n' "$t" >> "$TRANSCRIPT"
+  done
+}
+prompt_payload() { # <session_id>
+  printf '{"session_id":"%s","transcript_path":"%s","cwd":"%s","hook_event_name":"UserPromptSubmit","prompt":"next step"}' \
+    "$1" "$TRANSCRIPT" "$PDIR"
+}
+prun() { # <session_id> [threshold]: stdout in $out, exit code in $prc
+  out=$(prompt_payload "$1" | HOME="$HOME_DIR" TMPDIR="$TMP/tmpdir" \
+    PERSISTENT_HANDOFF_WARN_TOKENS="${2:-}" "$PHOOK")
+  prc=$?
+}
+PDIR_HANDOFF=$STATE/proj-prompt-$(digest_of "$PDIR").md
+
+# 48. Off by default. Nothing set, a context far past any threshold: silent.
+transcript_of 900000
+prun s48; [ "$prc" -eq 0 ] && [ -z "$out" ] \
+  && ok "48 prompt hook: off unless PERSISTENT_HANDOFF_WARN_TOKENS is set" \
+  || ko "48 (rc=$prc out=<$out>)"
+
+# 49. Over the threshold: one UserPromptSubmit additionalContext that names the
+# size, the threshold and the handoff path the SessionStart hook derives for the
+# same cwd. 120,000 is input plus both cache fields.
+printf '{"type":"assistant","message":{"usage":{"input_tokens":20000,"cache_creation_input_tokens":40000,"cache_read_input_tokens":60000}}}\n' > "$TRANSCRIPT"
+prun s49 100000
+c=$(printf '%s' "$out" | jq -r 'select(.hookSpecificOutput.hookEventName == "UserPromptSubmit") | .hookSpecificOutput.additionalContext' 2>/dev/null)
+if [ "$prc" -eq 0 ] && printf '%s' "$c" | grep -qF "$PDIR_HANDOFF" \
+   && printf '%s' "$c" | grep -q '120000 tokens' && printf '%s' "$c" | grep -q '100000'; then
+  ok "49 prompt hook: over the threshold, names size, threshold and handoff path"
+else
+  ko "49 (rc=$prc out=<$out>)"
+fi
+
+# 50. Under the threshold, and at exactly the threshold: silent.
+transcript_of 99999; prun s50 100000; o1=$out
+transcript_of 100000; prun s50 100000
+[ "$prc" -eq 0 ] && [ -z "$o1$out" ] \
+  && ok "50 prompt hook: silent at or under the threshold" || ko "50 (out=<$o1$out>)"
+
+# 51. Once per crossing: the next prompt of the same session, still over, says
+# nothing. A reminder on every prompt is noise the session learns to skip.
+transcript_of 150000; prun s51 100000; o1=$out
+transcript_of 150000 160000; prun s51 100000
+[ -n "$o1" ] && [ -z "$out" ] && [ "$prc" -eq 0 ] \
+  && ok "51 prompt hook: one reminder per crossing, not one per prompt" || ko "51 (first=<$o1> second=<$out>)"
+
+# 52. A compaction brings the context back under, which rearms it: the next
+# crossing in the same session warns again.
+transcript_of 150000 160000 30000; prun s51 100000; o1=$out
+transcript_of 150000 160000 30000 110000; prun s51 100000
+[ -z "$o1" ] && [ -n "$out" ] \
+  && ok "52 prompt hook: back under the threshold rearms the reminder" || ko "52 (under=<$o1> over=<$out>)"
+
+# 53. The marker is per session: another session over the threshold still warns.
+prun s53 100000
+[ -n "$out" ] && ok "53 prompt hook: one marker per session" || ko "53 (out=<$out>)"
+
+# 54. The last entry is the context, not the largest one: a transcript that
+# went past the threshold before a compaction and sits under it now is silent.
+transcript_of 180000 20000; prun s54 100000
+[ -z "$out" ] && ok "54 prompt hook: reads the last size, not the largest" || ko "54 (out=<$out>)"
+
+# 55. Sidechain entries are a subagent's context, not this session's.
+transcript_of 20000
+printf '{"type":"assistant","isSidechain":true,"message":{"usage":{"input_tokens":500000}}}\n' >> "$TRANSCRIPT"
+prun s55 100000
+[ -z "$out" ] && ok "55 prompt hook: ignores sidechain entries" || ko "55 (out=<$out>)"
+
+# 56. Fail-open: a missing transcript, a transcript of garbage, a threshold that
+# is not a number, a payload that is not JSON. Exit 0 and silent on each, a
+# broken reminder must never hold a prompt back.
+fo_ok=1
+transcript_of 150000
+rm -f "$TRANSCRIPT"; prun s56a 100000; { [ "$prc" -eq 0 ] && [ -z "$out" ]; } || fo_ok=0
+printf 'not json\n{"type":\n' > "$TRANSCRIPT"; prun s56b 100000; { [ "$prc" -eq 0 ] && [ -z "$out" ]; } || fo_ok=0
+transcript_of 150000
+prun s56c 'lots'; { [ "$prc" -eq 0 ] && [ -z "$out" ]; } || fo_ok=0
+out=$(printf 'nope' | HOME="$HOME_DIR" TMPDIR="$TMP/tmpdir" PERSISTENT_HANDOFF_WARN_TOKENS=100000 "$PHOOK"); rc=$?
+{ [ "$rc" -eq 0 ] && [ -z "$out" ]; } || fo_ok=0
+if [ -n "$NO_JQ" ]; then
+  out=$(prompt_payload s56d | PATH="$NO_JQ" HOME="$HOME_DIR" TMPDIR="$TMP/tmpdir" PERSISTENT_HANDOFF_WARN_TOKENS=100000 "$PHOOK"); rc=$?
+  { [ "$rc" -eq 0 ] && [ -z "$out" ]; } || fo_ok=0
+fi
+[ "$fo_ok" -eq 1 ] && ok "56 prompt hook: exit 0 and silent on every broken input" || ko "56"
+
+# 57. A pinned PERSISTENT_HANDOFF_FILE is the path the reminder names, since it
+# is the one the SessionStart hook reads.
+out=$(prompt_payload s57 | HOME="$HOME_DIR" TMPDIR="$TMP/tmpdir" PERSISTENT_HANDOFF_WARN_TOKENS=100000 \
+  PERSISTENT_HANDOFF_FILE="$TMP/pinned/agent.md" "$PHOOK")
+printf '%s' "$out" | jq -r '.hookSpecificOutput.additionalContext' 2>/dev/null | grep -qF "$TMP/pinned/agent.md" \
+  && ok "57 prompt hook: names a pinned PERSISTENT_HANDOFF_FILE" || ko "57 (out=<$out>)"
+
+# 58. Right after a compaction the last assistant entry is still the size from
+# before it. The boundary entry the compaction leaves means the size is unknown
+# until the next reply, and unknown is treated as under: no reminder on the
+# first prompt after a /compact.
+transcript_of 150000
+printf '{"type":"system","subtype":"compact_boundary","content":"Conversation compacted"}\n' >> "$TRANSCRIPT"
+prun s58 100000
+[ "$prc" -eq 0 ] && [ -z "$out" ] \
+  && ok "58 prompt hook: silent between a compaction and the next reply" || ko "58 (out=<$out>)"
+
 echo "---"
 [ "$skipped" -eq 0 ] || echo "$skipped case(s) skipped: they asserted nothing here"
 [ "$fail" -eq 0 ] && echo "ALL TESTS PASS" || echo "SOME TESTS FAILED"
