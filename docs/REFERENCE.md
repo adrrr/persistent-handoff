@@ -10,6 +10,8 @@ The dashed part lets you read the directory off the filename. The six hex charac
 
 Twenty-four bits is not a uniqueness proof, it makes a clash a coincidence. A `cksum` collision can also be constructed on purpose, and a handoff is executable input. Pin `PERSISTENT_HANDOFF_FILE` if you need a guarantee. The digest needs `cksum`, which is POSIX and present everywhere this is tested. Without it the name falls back to the dashed part and the hook says so on stderr.
 
+A file name holds 255 bytes. A directory deep enough to go past that keeps only the last 100 characters of the dashed part, and the digest still covers the full path. A name that fits is never shortened.
+
 `session-start-handoff.sh --path` prints the name for the directory you run it in. The skill uses it before its first write. After that, the hook names the path in the line it injects above the content.
 
 ## Pinning the path
