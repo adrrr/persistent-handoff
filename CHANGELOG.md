@@ -5,6 +5,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-11-12
+
 ### Added
 
 - An opt-in `UserPromptSubmit` hook, `hooks/prompt-submit-handoff.sh` (#7).
@@ -323,7 +325,8 @@ and stays silent. In each directory that has a handoff, run
   `tests/hook.sh`. Installed by hand, by copying two files and adding a
   `SessionStart` entry to `settings.json`.
 
-[Unreleased]: https://github.com/adrrr/persistent-handoff/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/adrrr/persistent-handoff/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/adrrr/persistent-handoff/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/adrrr/persistent-handoff/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/adrrr/persistent-handoff/compare/v0.2.4...v0.3.0
 [0.2.4]: https://github.com/adrrr/persistent-handoff/compare/v0.2.3...v0.2.4
