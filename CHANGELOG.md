@@ -17,7 +17,14 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the session started in. Unset, the hook exits on its first test.
   `PreCompact` was the first idea, but its output can only block a compaction,
   it cannot add anything to it or to the context.
-- `tests/hook.sh`: 47 cases to 61. `tests/manifests.sh`: 16 cases to 18.
+- `tests/hook.sh`: 47 cases to 64. `tests/manifests.sh`: 16 cases to 18.
+
+### Fixed
+
+- A directory deep enough gave a handoff name over 255 bytes, and the first
+  write failed with "File name too long" (#13). Past that limit only, the
+  dashed part keeps its last 100 characters and the digest of the full path
+  stays on the end. A name that fits is unchanged, so no existing handoff moves.
 
 ## [0.3.1] - 2026-09-11
 

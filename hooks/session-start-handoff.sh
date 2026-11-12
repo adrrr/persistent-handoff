@@ -149,12 +149,24 @@ if [ -z "$handoff_file" ]; then
   # directory, but lossy again, so say so somewhere a human can find it. stderr
   # from a hook that exits 0 reaches the debug log only, which is the right
   # volume for something this rare.
+  suffix=""
   if digest=$(path_digest "$cwd"); then
-    slug="$slug-$digest"
+    suffix="-$digest"
   else
     printf '%s: no usable cksum, falling back to %s.md, which cannot tell two similar paths apart\n' \
       "${0##*/}" "$slug" >&2
   fi
+  # A file name holds 255 bytes, and the slug is ASCII, so characters are
+  # bytes. A deep enough directory used to give a longer name, and the agent's
+  # first write died on "File name too long". Past the limit only, the slug
+  # keeps its last 100 characters, the end of the path a human recognises, and
+  # the digest of the full path still tells two such directories apart. A name
+  # that fits is left exactly as it was, so no existing handoff moves.
+  if [ "$(( ${#slug} + ${#suffix} + 3 ))" -gt 255 ]; then
+    slug=${slug:${#slug}-100}
+    slug=${slug#-}
+  fi
+  slug="$slug$suffix"
   # Not under ~/.claude. Claude Code protects that directory ahead of any allow
   # rule, so an agent in the default or acceptEdits mode is prompted before it
   # writes its handoff, and one told to refuse never writes it at all. The

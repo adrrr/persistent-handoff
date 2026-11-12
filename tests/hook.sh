@@ -804,6 +804,56 @@ transcript_of 5; prun s61 99999999999999999999
 [ "$prc" -eq 0 ] && [ -z "$out" ] \
   && ok "61 prompt hook: a threshold past 18 digits turns it off" || ko "61 (out=<$out>)"
 
+# 62. A directory deep enough to push the derived name past NAME_MAX (255
+# bytes) gets a shorter name that can be written. Seven levels of 40 characters
+# gave a 296-character name and "File name too long" on the first write.
+seg=$(printf 'x%.0s' $(seq 1 40))
+deep_a=$HOME_DIR/a; deep_b=$HOME_DIR/b
+for i in 1 2 3 4 5 6 7; do deep_a=$deep_a/$seg; deep_b=$deep_b/$seg; done
+# A filesystem that refuses a path this long before the name is even reached
+# (Windows without long paths) cannot say anything about the name: skip there.
+if ! mkdir -p "$deep_a" "$deep_b" 2>/dev/null; then
+  sk "62 this filesystem refuses a path that long"
+else
+  pa=$(cd "$deep_a" && HOME="$HOME_DIR" "$HOOK" --path)
+  pb=$(cd "$deep_b" && HOME="$HOME_DIR" "$HOOK" --path)
+  na=${pa##*/}
+  if [ "${#na}" -le 255 ] && : > "$pa" 2>/dev/null \
+     && [ "$na" != "${pb##*/}" ] && [ "${na%.md}" != "${na%-"$(digest_of "$deep_a")".md}" ]; then
+    ok "62 a deep directory gets a writable name, still told apart by its digest"
+  else
+    ko "62 (a=<$na> b=<${pb##*/}>)"
+  fi
+fi
+
+# 63. The cap starts one byte past the limit. A name that fits today does not
+# move, so an existing handoff is still found after the upgrade: 245
+# characters, the dash and digest, and ".md" make 255 and stay as they were.
+# One more character makes 256 and gets the short form.
+long=$(printf 'y%.0s' $(seq 1 245))
+if ! mkdir -p "$HOME_DIR/$long" "$HOME_DIR/${long}y" 2>/dev/null; then
+  sk "63 this filesystem refuses a path that long"
+else
+  p=$(cd "$HOME_DIR/$long" && HOME="$HOME_DIR" "$HOOK" --path)
+  p2=$(cd "$HOME_DIR/${long}y" && HOME="$HOME_DIR" "$HOOK" --path)
+  n2=${p2##*/}
+  [ "$p" = "$STATE/$long-$(digest_of "$HOME_DIR/$long").md" ] && [ "${#n2}" -lt 256 ] \
+    && ok "63 255 bytes keeps its exact old name, 256 gets the short one" || ko "63 (fits=<${p##*/}> over=<$n2>)"
+fi
+
+# 64. The short form keeps the end of the path, the part a human recognises,
+# and drops a dash the cut leaves in front: a last folder of 99 characters is
+# the whole readable part, digest after it.
+tail99=$(printf 'z%.0s' $(seq 1 99))
+mid=$(printf 'w%.0s' $(seq 1 150))
+if ! mkdir -p "$HOME_DIR/c/$mid/$tail99" 2>/dev/null; then
+  sk "64 this filesystem refuses a path that long"
+else
+  p=$(cd "$HOME_DIR/c/$mid/$tail99" && HOME="$HOME_DIR" "$HOOK" --path)
+  [ "$p" = "$STATE/$tail99-$(digest_of "$HOME_DIR/c/$mid/$tail99").md" ] \
+    && ok "64 the short name keeps the end of the path, no leading dash" || ko "64 (path=<${p##*/}>)"
+fi
+
 echo "---"
 [ "$skipped" -eq 0 ] || echo "$skipped case(s) skipped: they asserted nothing here"
 [ "$fail" -eq 0 ] && echo "ALL TESTS PASS" || echo "SOME TESTS FAILED"
