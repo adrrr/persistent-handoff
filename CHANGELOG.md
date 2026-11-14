@@ -5,6 +5,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- The 0.3.2 entry said a `PreCompact` hook can only block a compaction. Its
+  stdout can also give instructions for the compaction summary. It still gives
+  the session no turn to write its handoff, so the reminder stays on
+  `UserPromptSubmit`.
+
 ## [0.3.2] - 2026-11-12
 
 ### Added
@@ -17,8 +24,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `$TMPDIR` keeps it quiet until the size drops back under. The path comes from
   `session-start-handoff.sh --path`, run in `CLAUDE_PROJECT_DIR`, the directory
   the session started in. Unset, the hook exits on its first test.
-  `PreCompact` was the first idea, but its output can only block a compaction
-  or give instructions for its summary, it cannot add anything to the context.
+  `PreCompact` was the first idea, but its output can only block a compaction,
+  it cannot add anything to it or to the context.
 - `tests/hook.sh`: 47 cases to 64. `tests/manifests.sh`: 16 cases to 18.
 
 ### Fixed
