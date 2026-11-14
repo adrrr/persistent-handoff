@@ -6,9 +6,9 @@
 #
 # Contract: https://code.claude.com/docs/en/hooks#userpromptsubmit
 #
-# Why not PreCompact: its output cannot reach the session or the compaction. It
-# can only block it. So the reminder goes out on the prompts before, while the
-# session still has a turn to write in.
+# Why not PreCompact: its output cannot reach the session. It can only block the
+# compaction or give instructions for its summary. So the reminder goes out on
+# the prompts before, while the session still has a turn to write in.
 #
 # Configuration:
 #   PERSISTENT_HANDOFF_WARN_TOKENS  the context size, in tokens, past which the
