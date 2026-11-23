@@ -43,11 +43,11 @@ case $threshold in ''|*[!0-9]*) exit 0 ;; esac
 command -v jq >/dev/null 2>&1 || exit 0
 
 payload=$(cat)
-# Three values on three lines. A native jq.exe under Git Bash ends each line in
+# Two values on two lines. A native jq.exe under Git Bash ends each line in
 # CRLF, and the command substitution strips only the last newline, so the CRs
 # go here or the transcript path carries one and is never found.
-fields=$(printf '%s' "$payload" | jq -r '(.session_id // ""), (.transcript_path // ""), (.cwd // "")' 2>/dev/null | tr -d '\r') || exit 0
-{ IFS= read -r session_id; IFS= read -r transcript; IFS= read -r cwd; } <<EOF
+fields=$(printf '%s' "$payload" | jq -r '(.session_id // ""), (.transcript_path // "")' 2>/dev/null | tr -d '\r') || exit 0
+{ IFS= read -r session_id; IFS= read -r transcript; } <<EOF
 $fields
 EOF
 [ -f "$transcript" ] && [ -r "$transcript" ] || exit 0
@@ -74,15 +74,10 @@ fi
 # symlink, and two prompts racing get one reminder between them.
 mkdir "$marker" 2>/dev/null || exit 0
 
-# The path comes from session-start-handoff.sh --path, so the rule that derives
-# it lives in one place. Run from CLAUDE_PROJECT_DIR, the directory the session
-# started in, which is where the startup SessionStart read the handoff from. The
-# payload's cwd moves when the session runs cd, and a SessionStart after a
-# compact derives its path from that cwd: a session that has cd'ed gets this
-# file back at its next startup, not right after the compaction. No path, no
-# reminder, and the marker goes so the next prompt tries again.
+# Use the same selection as SessionStart. If path lookup fails, remove the
+# marker so the next prompt can try again.
 here=$(cd "${0%/*}" 2>/dev/null && pwd)
-handoff=$(cd "${CLAUDE_PROJECT_DIR:-${cwd:-$PWD}}" 2>/dev/null && "$here/session-start-handoff.sh" --path 2>/dev/null)
+handoff=$(printf '%s' "$payload" | "$here/session-start-handoff.sh" --read-path 2>/dev/null)
 [ -n "$handoff" ] || { rmdir "$marker" 2>/dev/null; exit 0; }
 
 printf '%s' "Your context is about $tokens tokens, past the $threshold set in PERSISTENT_HANDOFF_WARN_TOKENS. A compaction is coming, and what lives only in this context will not survive it. If work is in flight, bring the handoff at $handoff current now: where you are, the next action, open questions, traps. Write it if it does not exist yet. If nothing is in flight, ignore this. This reminder comes once, and again only after the context drops back under the threshold." |
