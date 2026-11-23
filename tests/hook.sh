@@ -860,8 +860,11 @@ mkdir -p "$SUBDIR" "$HOOK_DIR"
 project_file=$(cd "$PROJECT" && HOME="$HOME_DIR" "$HOOK" --path)
 subdir_file=$(cd "$SUBDIR" && HOME="$HOME_DIR" CLAUDE_PROJECT_DIR="$PROJECT" "$HOOK" --path)
 process_file=$(cd "$HOOK_DIR" && HOME="$HOME_DIR" "$HOOK" --path)
+# Git Bash rewrites a POSIX path passed to a native jq.exe into a Windows one,
+# which would hand the hook a cwd the test never meant. The other payloads are
+# built with printf, a builtin, so they are not touched.
 compact_run() { # [payload cwd]
-  out=$(cd "$HOOK_DIR" && jq -cn --arg cwd "${1:-$SUBDIR}" \
+  out=$(cd "$HOOK_DIR" && MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' jq -cn --arg cwd "${1:-$SUBDIR}" \
     '{session_id:"s",cwd:$cwd,source:"compact",hook_event_name:"SessionStart"}' \
     | HOME="$HOME_DIR" CLAUDE_PROJECT_DIR="$PROJECT/" "$HOOK")
   rc=$?
