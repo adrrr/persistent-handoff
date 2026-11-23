@@ -13,8 +13,7 @@ HOME_DIR="$TMP/home"
 # it would send every staged handoff somewhere the assertions do not look.
 unset PERSISTENT_HANDOFF_FILE
 unset XDG_STATE_HOME
-# Claude Code exports the directory the session started in to every hook, and
-# the prompt hook (cases 48 on) prefers it over the payload's cwd.
+# Set the session's starting directory only in cases that need it.
 unset CLAUDE_PROJECT_DIR
 # Where the derived name lands, and where it used to land. The old
 # directory is created empty and stays empty: cases 1 to 37 then also say that an
@@ -774,15 +773,13 @@ prun s58 100000
 [ "$prc" -eq 0 ] && [ -z "$out" ] \
   && ok "58 prompt hook: silent between a compaction and the next reply" || ko "58 (out=<$out>)"
 
-# 59. The handoff is the one the session started with. The payload's cwd moves
-# when the session runs cd, CLAUDE_PROJECT_DIR stays where it started, and the
-# reminder names the file the startup SessionStart read, not the subdirectory's.
+# 59. With no handoff yet, the reminder gives the project path for a first write.
 mkdir -p "$PDIR/sub"
 transcript_of 150000
 out=$(printf '{"session_id":"s59","transcript_path":"%s","cwd":"%s/sub","hook_event_name":"UserPromptSubmit","prompt":"x"}' "$TRANSCRIPT" "$PDIR" \
   | HOME="$HOME_DIR" TMPDIR="$TMP/tmpdir" PERSISTENT_HANDOFF_WARN_TOKENS=100000 CLAUDE_PROJECT_DIR="$PDIR" "$PHOOK")
 printf '%s' "$out" | jq -r '.hookSpecificOutput.additionalContext' 2>/dev/null | grep -qF "$PDIR_HANDOFF" \
-  && ok "59 prompt hook: names the handoff of CLAUDE_PROJECT_DIR, not of a cd" || ko "59 (out=<$out>)"
+  && ok "59 prompt hook: suggests the project handoff when none exists" || ko "59 (out=<$out>)"
 
 # 60. An API error lands in the transcript as an assistant entry from the model
 # "<synthetic>" with a usage of zero. It says nothing about the context, and
@@ -853,6 +850,64 @@ else
   [ "$p" = "$STATE/$tail99-$(digest_of "$HOME_DIR/c/$mid/$tail99").md" ] \
     && ok "64 the short name keeps the end of the path, no leading dash" || ko "64 (path=<${p##*/}>)"
 fi
+
+# 65-73. After cd and compact, the project, payload cwd and process directory
+# can all differ. Stage each file at the path the writer would use there.
+PROJECT=$HOME_DIR/proj-compact
+SUBDIR=$PROJECT/sub
+HOOK_DIR=$HOME_DIR/proj-process
+mkdir -p "$SUBDIR" "$HOOK_DIR"
+project_file=$(cd "$PROJECT" && HOME="$HOME_DIR" "$HOOK" --path)
+subdir_file=$(cd "$SUBDIR" && HOME="$HOME_DIR" CLAUDE_PROJECT_DIR="$PROJECT" "$HOOK" --path)
+process_file=$(cd "$HOOK_DIR" && HOME="$HOME_DIR" "$HOOK" --path)
+compact_run() { # [payload cwd]
+  out=$(cd "$HOOK_DIR" && jq -cn --arg cwd "${1:-$SUBDIR}" \
+    '{session_id:"s",cwd:$cwd,source:"compact",hook_event_name:"SessionStart"}' \
+    | HOME="$HOME_DIR" CLAUDE_PROJECT_DIR="$PROJECT/" "$HOOK")
+  rc=$?
+}
+compact_reads() { # <expected body>
+  [ "$rc" -eq 0 ] && printf '%s' "$out" | jq -e --arg body "$1" \
+    '.hookSpecificOutput.additionalContext | endswith("\n\n" + $body)' >/dev/null
+}
+
+printf 'project state\n' > "$project_file"
+compact_run
+compact_reads 'project state' && ok "65 compact after cd: reads the project handoff" || ko "65 (out=<$out>)"
+
+rm -f "$project_file"
+printf 'subdir state\n' > "$subdir_file"
+compact_run
+compact_reads 'subdir state' && ok "66 compact after cd: reads the subdirectory handoff" || ko "66 (out=<$out>)"
+
+printf 'project state\n' > "$project_file"
+touch -t 202001010000 "$project_file" && touch -t 202001020000 "$subdir_file" && compact_run \
+  && compact_reads 'subdir state' && ok "67 compact after cd: newer subdirectory handoff wins" || ko "67 (out=<$out>)"
+
+transcript_of 150000
+out=$(cd "$HOOK_DIR" && printf '{"session_id":"s68","transcript_path":"%s","cwd":"%s","hook_event_name":"UserPromptSubmit"}' "$TRANSCRIPT" "$SUBDIR" \
+  | HOME="$HOME_DIR" TMPDIR="$TMP/tmpdir" PERSISTENT_HANDOFF_WARN_TOKENS=100000 CLAUDE_PROJECT_DIR="$PROJECT/" "$PHOOK")
+ctx_of "$out" | grep -qF "at $subdir_file current" \
+  && ok "68 prompt hook: names the newer subdirectory handoff" || ko "68 (out=<$out>)"
+
+touch -t 202001030000 "$project_file" && compact_run \
+  && compact_reads 'project state' && ok "69 compact after cd: newer project handoff wins" || ko "69 (out=<$out>)"
+
+touch -t 202001030000 "$subdir_file" && compact_run \
+  && compact_reads 'project state' && ok "70 compact after cd: ties prefer the project handoff" || ko "70 (out=<$out>)"
+
+# A backslash spelling in the payload must not hide the forward-slash candidate.
+compact_run "${PROJECT//\//\\}"
+compact_reads 'project state' && ok "71 compact: tries both directory spellings" || ko "71 (out=<$out>)"
+
+rm -f "$project_file" "$subdir_file"
+printf 'process state\n' > "$process_file"
+compact_run "$PROJECT"
+compact_reads 'process state' && ok "72 compact: falls back to the process directory" || ko "72 (out=<$out>)"
+
+rm -f "$process_file"
+compact_run
+[ "$rc" -eq 0 ] && [ -z "$out" ] && ok "73 compact: silent when no candidate exists" || ko "73 (out=<$out>)"
 
 echo "---"
 [ "$skipped" -eq 0 ] || echo "$skipped case(s) skipped: they asserted nothing here"

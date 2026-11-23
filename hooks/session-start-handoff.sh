@@ -22,8 +22,8 @@
 #                            relative value is ignored, as the XDG spec says.
 #
 # jq is used when available, both to read the payload and to escape the output.
-# Without it the script falls back to $PWD and to plain stdout, which Claude
-# Code also adds to the context of a SessionStart hook.
+# Without it the script uses the project and process directories and emits
+# plain stdout, which Claude Code also adds to the context of a SessionStart hook.
 #
 # To run it by hand, feed it a payload: it reads stdin and will otherwise sit
 # there waiting.
@@ -61,22 +61,22 @@ HANDOFF_WARN_BYTES=8000
 # Anything else is refused rather than ignored: the hook reads stdin
 # unconditionally on its normal path, so a mistyped flag would hang on a
 # terminal instead of saying anything.
-want_path=""
+mode=${1:-}
 usage() {
-  printf 'usage: %s [--path]\n' "${0##*/}" >&2
+  printf 'usage: %s [--path | --read-path]\n' "${0##*/}" >&2
   printf '  no arguments: read a SessionStart payload on stdin, emit the handoff\n' >&2
   printf '  --path:       print the handoff path for the current directory\n' >&2
+  printf '  --read-path:  read the payload and print the selected handoff path\n' >&2
   exit 2
 }
 [ "$#" -le 1 ] || usage
-case ${1:-} in
-  "") ;;
-  --path) want_path=yes ;;
+case $mode in
+  ""|--path|--read-path) ;;
   *) usage ;;
 esac
 
 payload=""
-[ -n "$want_path" ] || payload=$(cat)
+[ "$mode" = --path ] || payload=$(cat)
 home=${HOME:-$PWD}
 home=${home%/}   # a trailing slash would silently change every derived name
 
@@ -86,6 +86,8 @@ home=${home%/}   # a trailing slash would silently change every derived name
 # process's own directory, which is not the cwd the payload names, so the hook
 # would answer --path with one file and read another, then go silent. Going
 # silent is what this hook does when nothing is in flight.
+# Claude Code protects ~/.claude ahead of any allow rule, so handoffs live in
+# the state directory where the agent can write them at milestones.
 state_home=${XDG_STATE_HOME:-}
 case $state_home in
   /*) state_home=${state_home%/} ;;
@@ -111,22 +113,15 @@ path_digest() {
   printf '%06x' "$(( 10#$crc & 0xFFFFFF ))"
 }
 
-# Set alongside a derived path only: the file this slug had while the default
-# was under ~/.claude. Reported below when it is the only one of the two that
-# exists. A pinned path has no old form, so it stays empty there.
-legacy_file=""
+# ~/proj and ~/proj/ have the same handoff. Keep the slash for the root itself.
+normalize_cwd() { # <variable> <directory>
+  local directory=$2
+  [ "$directory" = / ] || directory=${directory%/}
+  printf -v "$1" '%s' "$directory"
+}
 
-handoff_file="${PERSISTENT_HANDOFF_FILE:-}"
-if [ -z "$handoff_file" ]; then
-  cwd=""
-  if command -v jq >/dev/null 2>&1; then
-    cwd=$(printf '%s' "$payload" | jq -r '.cwd // empty' 2>/dev/null)
-  fi
-  [ -n "$cwd" ] || cwd="$PWD"
-  # ~/proj and ~/proj/ are one directory and must be one handoff. The digest is
-  # taken over the string, so the slash has to go before it is computed.
-  [ "$cwd" = "/" ] || cwd=${cwd%/}
-
+handoff_name() {
+  local cwd=$1 rel slug suffix digest
   # The whole path becomes the name, not just its last segment: ~/work/acme/api
   # and ~/work/beta/api are two different agents and must not share a handoff.
   # A cwd outside $HOME keeps an "abs-" prefix, and $HOME itself is named "home"
@@ -166,17 +161,57 @@ if [ -z "$handoff_file" ]; then
     slug=${slug:${#slug}-100}
     slug=${slug#-}
   fi
-  slug="$slug$suffix"
-  # Not under ~/.claude. Claude Code protects that directory ahead of any allow
-  # rule, so an agent in the default or acceptEdits mode is prompted before it
-  # writes its handoff, and one told to refuse never writes it at all. The
-  # handoff is written unprompted at a milestone or it is not written.
-  handoff_file="$state_home/persistent-handoff/$slug.md"
-  legacy_file="$home/.claude/handoffs/$slug.md"
+  printf '%s%s.md' "$slug" "$suffix"
+}
+
+exists() { [ -e "$1" ] || [ -L "$1" ]; }   # A dangling symlink needs a diagnostic.
+
+select_handoff() {
+  local candidate previous name file first="" legacy_cwd
+  local seen=("")
+  normalize_cwd legacy_cwd "${1:-$PWD}"
+  for candidate in "${CLAUDE_PROJECT_DIR:-}" "$1" "$PWD"; do
+    normalize_cwd candidate "$candidate"
+    for previous in "${seen[@]}"; do
+      [ "$candidate" != "$previous" ] || continue 2
+    done
+    seen+=("$candidate")
+    name=$(handoff_name "$candidate")
+    file="$state_home/persistent-handoff/$name"
+    [ -n "$first" ] || first=$file
+    # Keep the old migration notice for the directory we used to read.
+    if [ "$candidate" = "$legacy_cwd" ]; then
+      legacy_file="$home/.claude/handoffs/$name"
+    fi
+    # A strict comparison leaves the earliest candidate in place on a tie.
+    if exists "$file" && { [ -z "$handoff_file" ] || [ "$file" -nt "$handoff_file" ]; }; then
+      handoff_file=$file
+    fi
+  done
+  # The reminder needs a path for a first write when there is no handoff yet.
+  if [ "$mode" = --read-path ]; then
+    handoff_file=${handoff_file:-$first}
+  fi
+}
+
+legacy_file=""
+handoff_file="${PERSISTENT_HANDOFF_FILE:-}"
+if [ -z "$handoff_file" ]; then
+  if [ "$mode" = --path ]; then
+    normalize_cwd cwd "$PWD"
+    handoff_file="$state_home/persistent-handoff/$(handoff_name "$cwd")"
+  else
+    cwd=""
+    if command -v jq >/dev/null 2>&1; then
+      # Join output so native jq's line ending cannot become part of the path.
+      cwd=$(printf '%s' "$payload" | jq -j '.cwd // empty' 2>/dev/null)
+    fi
+    select_handoff "$cwd"
+  fi
 fi
 
-if [ -n "$want_path" ]; then
-  # --path is asked immediately before a first write. The plugin install never
+if [ -n "$mode" ]; then
+  # Both path commands can be asked before a first write. The plugin install never
   # runs the hand install's mkdir, so without this the write fails and the agent
   # is left with nowhere to put its handoff. Only when there is a directory part
   # to create: "${handoff_file%/*}" is the whole string for a bare filename, so
@@ -200,17 +235,12 @@ fi
 # for whatever that session already did, and the preamble has to say so or the
 # session holds two states with no rule for which wins.
 #
-# Read below the --path exit, which has no payload to read and would spawn a jq
-# for nothing. Same fallback as the cwd above when there is no jq at all: the
-# source stays empty and the fresh-start preamble is used. It claims no
-# precedence, so it is the safe one to be wrong with.
+# Read below the path-only exits. When there is no jq, the source stays empty
+# and the fresh-start preamble is used. It claims no precedence.
 start_source=""
 if command -v jq >/dev/null 2>&1; then
   start_source=$(printf '%s' "$payload" | jq -r '.source // empty' 2>/dev/null)
 fi
-
-exists() { [ -e "$1" ] || [ -L "$1" ]; }   # -L: a dangling symlink is a broken
-                                          # handoff, not an absent one
 
 emit() {
   # jq failing is treated like jq missing. Testing only for its presence would
@@ -234,7 +264,8 @@ emit() {
 # nothing is in flight, would be given its pre-upgrade state back at the next
 # start, and at every start after that. A filename cannot go stale that way, and
 # moving the file ends the message for good.
-if [ -n "$legacy_file" ] && ! exists "$handoff_file" && exists "$legacy_file"; then
+if [ -z "$handoff_file" ] && [ -n "$legacy_file" ] && exists "$legacy_file"; then
+  handoff_file="$state_home/persistent-handoff/${legacy_file##*/}"
   emit "A handoff for this directory sits at $legacy_file. That is where this plugin kept handoffs before the default moved out of ~/.claude, and nothing reads it any more, so its contents are not in this session. Read that file, write it to $handoff_file, and delete the old one. After that it loads by itself again, and this message stops."
   exit 0
 fi

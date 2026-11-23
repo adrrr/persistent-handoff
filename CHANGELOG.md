@@ -7,6 +7,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- After a compact, `SessionStart` can recover a handoff written before or after
+  a `cd` (#15). It reads the newest handoff from the project directory, the
+  payload's `cwd`, or the hook's working directory, in that order on ties. The
+  pre-compaction reminder uses the same selection.
 - The 0.3.2 entry said a `PreCompact` hook can only block a compaction. Its
   stdout can also give instructions for the compaction summary. It still gives
   the session no turn to write its handoff, so the reminder stays on
