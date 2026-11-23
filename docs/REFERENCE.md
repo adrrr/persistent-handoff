@@ -6,7 +6,7 @@ The short answers in the README, in full. All of it is behaviour of [`hooks/sess
 
 By default the hook names the file after the working directory relative to your home, separators turned into dashes, plus a short digest of the full path. An agent in `/home/alice/work/acme/api` reads `~/.local/state/persistent-handoff/work-acme-api-32817b.md`. `XDG_STATE_HOME` replaces `~/.local/state` when it is set.
 
-At `SessionStart`, the candidates are `CLAUDE_PROJECT_DIR`, the payload's `cwd`, and `$PWD`, in that order. Empty and duplicate directories are skipped after trailing slash normalization. The newest existing handoff wins, and ties go to the first candidate. The pre-compaction reminder names that same file. With no handoff yet, the reminder suggests the first candidate's path.
+At `SessionStart`, the candidates are `CLAUDE_PROJECT_DIR`, the payload's `cwd`, and `$PWD`, in that order. Empty and duplicate directories are skipped after trailing slash normalization. The newest existing handoff wins, by modification time to the second, and ties go to the first candidate. The pre-compaction reminder names that same file. With no handoff yet, the reminder suggests the first candidate's path.
 
 The dashed part lets you read the directory off the filename. The six hex characters separate what it merges, `~/my project` and `~/my-project`, or `~/abs/var/tmp/x` and `/var/tmp/x`. The digest covers the absolute path, so yours won't match the example.
 
